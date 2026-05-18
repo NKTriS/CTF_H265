@@ -1,3 +1,4 @@
 Đừng soi từng khung hình; hãy đứng ở cửa ra vào của mỗi nhịp video.
-Người gác cửa không nói một mình: lời của nó phải đọc cùng cái bóng tăng/giảm của bức tranh phía sau.
+Người gác cửa chỉ nói bằng tiếng nhỏ nhất của mình; hãy đọc nó cùng cái bóng tăng/giảm so với bức tranh ngay trước đó.
+Đừng đọc thẳng một hàng: có những nhịp chỉ để gây nhiễu.
 Nếu nghe đúng nhịp, lá thư mở đầu bằng hai chữ `AU`, sau đó là độ dài và một dấu kiểm ở cuối.
