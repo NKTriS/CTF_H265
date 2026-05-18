@@ -1,0 +1,10 @@
+Video source:
+- Big Buck Bunny sample, H.265/HEVC test clip from PhotoPrism sample repository.
+- Source URL: https://dl.photoprism.app/samples/Formats/Video/H.265-HEVC/bbb.hevc
+- Original film: Big Buck Bunny, Blender Foundation.
+- License note: Big Buck Bunny is an open movie released under Creative Commons Attribution. See: https://en.wikipedia.org/wiki/Big_Buck_Bunny
+
+Challenge processing:
+- The source HEVC clip was looped/re-encoded into a short HEVC stream for CTF use.
+- The hidden channel was inserted into HEVC Access Unit Delimiter NAL units.
+
