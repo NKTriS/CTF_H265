@@ -21,9 +21,8 @@ files:
     - solution/exploit.py
     - solution/defense.patch
 description: |
-  H265 NAL Vault is a small attack/defense service that stores team secrets
-  inside raw HEVC Annex-B bitstreams. The hidden channel is the low bit of
-  primary_pic_type in AUD NAL units, type 35. The intended attack is to abuse
-  an exposed debug endpoint, download another team's .h265 carrier, and decode
-  the hidden flag. The intended defense is to remove or protect the debug file
-  endpoint while keeping /api/store and /api/read working for the checker.
+  H265 NAL Vault là một service attack/defense lưu bí mật của đội chơi trong
+  raw HEVC Annex-B bitstream. Kênh ẩn nằm ở bit thấp nhất của primary_pic_type
+  trong AUD NAL type 35. Hướng attack là khai thác debug endpoint bị lộ, tải
+  carrier .h265 của đội khác và giải mã flag. Hướng defense là xóa hoặc bảo vệ
+  debug endpoint, đồng thời giữ /api/store và /api/read hoạt động cho checker.

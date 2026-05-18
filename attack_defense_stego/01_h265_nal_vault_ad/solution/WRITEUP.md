@@ -1,26 +1,26 @@
 # H265 NAL Vault AD - Writeup
 
-Writeup da duoc tach thanh hai file rieng de dung dung yeu cau Attack/Defense:
+Writeup đã được tách thành hai file riêng để đúng yêu cầu Attack/Defense:
 
-- `solution/ATTACK.md`: cach khai thac, tai carrier `.h265`, parse AUD NAL va lay flag.
-- `solution/DEFENSE.md`: cach va service, anh chup man hinh can co, va cach chung minh checker van OK.
+- `solution/ATTACK.md`: cách khai thác, tải carrier `.h265`, parse AUD NAL và lấy flag.
+- `solution/DEFENSE.md`: cách vá service, ảnh chụp màn hình cần có, và cách chứng minh checker vẫn OK.
 
-## Tom tat loi
+## Tóm tắt lỗi
 
-Service luu flag vao raw HEVC Annex-B bitstream. API doc hop le `/api/read` co
-kiem tra `token`, nhung service lai de lo hai route debug:
+Service lưu flag vào raw HEVC Annex-B bitstream. API đọc hợp lệ `/api/read` có
+kiểm tra `token`, nhưng service lại để lộ hai route debug:
 
 ```text
 /api/debug/list
 /api/debug/file/<filename>
 ```
 
-Attacker tai carrier `.h265`, tach AUD NAL type 35, doc bit an trong
-`primary_pic_type & 1`, roi khoi phuc packet:
+Attacker tải carrier `.h265`, tách AUD NAL type 35, đọc bit ẩn trong
+`primary_pic_type & 1`, rồi khôi phục packet:
 
 ```text
 H5AD || 2-byte length || flag || crc32(flag)
 ```
 
-Defense chinh la xoa hoac chan hai endpoint debug, dong thoi giu nguyen
-`/health`, `/api/store`, va `/api/read` de checker van hoat dong.
+Defense chính là xóa hoặc chặn hai endpoint debug, đồng thời giữ nguyên
+`/health`, `/api/store`, và `/api/read` để checker vẫn hoạt động.

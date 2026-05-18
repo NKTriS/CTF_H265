@@ -1,29 +1,29 @@
-# Screenshots can chup cho phan defense
+# Ảnh chụp màn hình cần có
 
-Dat anh chup man hinh vao thu muc nay khi nop bai.
+Đặt ảnh chụp màn hình vào thư mục này khi nộp bài.
 
-Danh sach anh de xuat:
+Danh sách ảnh đề xuất:
 
-Attack:
+## Attack
 
 1. `attack-01-service-health.png`
-   - Chup service chay va `/health` tra ve `ok`.
+   - Chụp service đang chạy và `/health` trả về `ok`.
 2. `attack-02-debug-list.png`
-   - Chup `/api/debug/list` lam lo file `.h265`.
+   - Chụp `/api/debug/list` làm lộ file `.h265`.
 3. `attack-03-exploit-flag.png`
-   - Chup exploit in ra flag.
+   - Chụp exploit in ra flag.
 
-Defense:
+## Defense
 
 1. `defense-01-before-exploit-leaks-flag.png`
-   - Chup exploit truoc khi va, output co flag.
+   - Chụp exploit trước khi vá, output có flag.
 2. `defense-02-vulnerable-code.png`
-   - Chup `service/app.py` co hai route debug.
+   - Chụp `service/app.py` có hai route debug.
 3. `defense-03-patched-code.png`
-   - Chup `service/app.py` sau khi da xoa debug route.
+   - Chụp `service/app.py` sau khi đã xóa debug route.
 4. `defense-04-service-health-after-patch.png`
-   - Chup `curl /health` sau khi rebuild/restart service.
+   - Chụp `curl /health` sau khi rebuild/restart service.
 5. `defense-05-checker-still-ok.png`
-   - Chup checker `check` hoac `put/get` tra ve `OK`.
+   - Chụp checker `check` hoặc `put/get` trả về `OK`.
 6. `defense-06-exploit-blocked.png`
-   - Chup `/api/debug/list` tra ve 404 hoac exploit khong in flag.
+   - Chụp `/api/debug/list` trả về 404 hoặc exploit không in flag.
