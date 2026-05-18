@@ -1,4 +1,4 @@
-# Filler NAL Channel - Writeup
+# Empty Crate - Writeup
 
 ## 1. Xác định file cần phân tích
 
@@ -115,7 +115,7 @@ for bit in chunk:
 Kết quả:
 
 ```text
-HEVC{filler_nal_length_channel}
+blockChainPTIT{filler_voids_01}
 ```
 
 ## 9. Đối chiếu log
@@ -131,11 +131,11 @@ python3 solve.py ../public/warehouse-suspect.hevc
 Output:
 
 ```text
-HEVC{filler_nal_length_channel}
+blockChainPTIT{filler_voids_01}
 ```
 
 ## Flag
 
 ```text
-HEVC{filler_nal_length_channel}
+blockChainPTIT{filler_voids_01}
 ```

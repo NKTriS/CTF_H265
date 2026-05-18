@@ -74,7 +74,7 @@ def main():
             encrypted = payload[16:]
             for key in range(256):
                 text = bytes(b ^ key for b in encrypted)
-                if text.startswith(b"HEVC-LAB{"):
+                if text.startswith(b"blockChainPTIT{"):
                     print(text.decode())
                     return
     raise SystemExit("flag not found")

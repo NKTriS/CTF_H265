@@ -1,8 +1,8 @@
-id: 01_hevc_metadata_slice
-name: HEVC Metadata Slice
+id: 01_silent_frame
+name: Silent Frame
 category: H265 Steganography
 difficulty: medium
-flag: HEVC-LAB{metadata_is_not_pixels}
+flag: blockChainPTIT{metadata_nopixel}
 files:
   - public/suspicious.hevc
   - public/clean.hevc

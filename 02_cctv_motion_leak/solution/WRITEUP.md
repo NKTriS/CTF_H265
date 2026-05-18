@@ -1,4 +1,4 @@
-# CCTV Motion Leak - Writeup
+# Night Shift Camera - Writeup
 
 ## 1. Xác định file cần phân tích
 
@@ -128,7 +128,7 @@ for bit in bits[offset:offset + 8]:
 Kết quả:
 
 ```text
-HEVC{motion_leak_in_cctv}
+blockChainPTIT{mvx_leaks}
 ```
 
 ## 10. Đối chiếu log
@@ -156,11 +156,11 @@ python3 solve.py ../public/cctv.hevc
 Output:
 
 ```text
-HEVC{motion_leak_in_cctv}
+blockChainPTIT{mvx_leaks}
 ```
 
 ## Flag
 
 ```text
-HEVC{motion_leak_in_cctv}
+blockChainPTIT{mvx_leaks}
 ```

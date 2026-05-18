@@ -1,4 +1,4 @@
-# HEVC Metadata Slice - Writeup
+# Silent Frame - Writeup
 
 ## 1. Xác định file cần phân tích
 
@@ -138,14 +138,14 @@ Dữ liệu sau UUID bị XOR 1 byte. Thử tất cả key từ `0` đến `255`
 ```python
 for key in range(256):
     text = bytes(b ^ key for b in encrypted)
-    if text.startswith(b"HEVC-LAB{"):
+    if text.startswith(b"blockChainPTIT{"):
         print(text.decode())
 ```
 
 Kết quả:
 
 ```text
-HEVC-LAB{metadata_is_not_pixels}
+blockChainPTIT{metadata_nopixel}
 ```
 
 ## 10. Kiểm tra token phụ
@@ -167,11 +167,11 @@ python3 solve.py ../public/suspicious.hevc
 Output:
 
 ```text
-HEVC-LAB{metadata_is_not_pixels}
+blockChainPTIT{metadata_nopixel}
 ```
 
 ## Flag
 
 ```text
-HEVC-LAB{metadata_is_not_pixels}
+blockChainPTIT{metadata_nopixel}
 ```

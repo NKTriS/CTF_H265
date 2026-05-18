@@ -1,8 +1,8 @@
-# Đề bài Jeopardy CTF: AUD Timing
+# Đề bài Jeopardy CTF: The Rabbit Gate
 
 ## Thông tin chung
 
-- Tên bài: AUD Timing
+- Tên bài: The Rabbit Gate
 - Chủ đề: H.265/HEVC steganography
 - Hình thức: Jeopardy
 - Độ khó đề xuất: Khá khó
@@ -25,7 +25,7 @@ Các file public nằm trong thư mục `public/`:
 Có thể phát cho người chơi file zip:
 
 ```text
-dist/05_aud_timing_extreme_public.zip
+dist/05_the_rabbit_gate_public.zip
 ```
 
 ## Gợi ý public

@@ -1,0 +1,17 @@
+id: 05_the_rabbit_gate
+name: The Rabbit Gate
+category: H265 Steganography
+difficulty: hard
+flag: blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
+files:
+  - public/bunny_aud_suspect.hevc
+  - public/bunny_aud_suspect.mp4
+  - public/HINT.txt
+description: |
+  Một đoạn Big Buck Bunny H.265 nhìn rất bình thường. Không có chuỗi flag trong strings,
+  không có SEI user-data rõ ràng, không có filler payload, không có trace tặng kèm.
+  Hãy phân tích bitstream HEVC và tìm kênh giấu tin nằm ngoài dữ liệu ảnh hiển thị.
+hints:
+  - Có những nhịp chỉ gây nhiễu, và có những nhịp mới thật sự nói.
+  - Đúng chỗ cất giấu chưa chắc đã đủ; hãy so nó với biến động của phần hình ảnh đi kèm.
+  - Khi đi đúng đường, dữ liệu mở đầu bằng hai chữ cái, rồi tới độ dài và phần kiểm tra lỗi.

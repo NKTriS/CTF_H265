@@ -1,8 +1,8 @@
-id: 04_cabac_merge_idx
-name: CABAC Merge Index
+id: 04_borrowed_shortcut
+name: Borrowed Shortcut
 category: H265 Steganography
 difficulty: medium
-flag: HEVC{cabac_merge_idx_channel}
+flag: blockChainPTIT{merge_path_01}
 files:
   - public/warehouse-source.mp4
   - public/merge_trace.csv

@@ -1,4 +1,4 @@
-# CABAC Merge Index - Writeup
+# Borrowed Shortcut - Writeup
 
 ## 1. Xác định file cần phân tích
 
@@ -115,7 +115,7 @@ for bit in chunk:
 Kết quả:
 
 ```text
-HEVC{cabac_merge_idx_channel}
+blockChainPTIT{merge_path_01}
 ```
 
 ## 9. Xác định tài khoản đáng ngờ
@@ -137,11 +137,11 @@ python3 solve.py ../public/merge_trace.csv
 Output:
 
 ```text
-HEVC{cabac_merge_idx_channel}
+blockChainPTIT{merge_path_01}
 ```
 
 ## Flag
 
 ```text
-HEVC{cabac_merge_idx_channel}
+blockChainPTIT{merge_path_01}
 ```

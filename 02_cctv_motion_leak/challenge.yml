@@ -1,8 +1,8 @@
-id: 02_cctv_motion_leak
-name: CCTV Motion Leak
+id: 02_night_shift_camera
+name: Night Shift Camera
 category: H265 Steganography
 difficulty: medium
-flag: HEVC{motion_leak_in_cctv}
+flag: blockChainPTIT{mvx_leaks}
 files:
   - public/cctv.hevc
   - public/cctv_export.log
