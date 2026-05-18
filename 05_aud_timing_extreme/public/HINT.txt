@@ -1,4 +1,3 @@
-Hãy tách file `.hevc` thành các NAL unit trước, đừng bắt đầu bằng trích frame ảnh.
-Có một loại NAL điều khiển xuất hiện đều theo nhịp video; bit của nó cần được so với NAL ảnh/VCL đi kèm.
-Nếu chỉ đọc một nguồn mà ra nhiễu, hãy thử XOR với nhịp tăng/giảm kích thước của VCL.
-Khi đúng bitstream, dữ liệu bắt đầu bằng `AU`, tiếp theo là 2 byte độ dài và kết thúc bằng CRC32.
+Đừng soi từng khung hình; hãy đứng ở cửa ra vào của mỗi nhịp video.
+Người gác cửa không nói một mình: lời của nó phải đọc cùng cái bóng tăng/giảm của bức tranh phía sau.
+Nếu nghe đúng nhịp, lá thư mở đầu bằng hai chữ `AU`, sau đó là độ dài và một dấu kiểm ở cuối.
