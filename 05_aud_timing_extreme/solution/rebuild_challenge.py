@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import hashlib
 import random
 import struct
 import zlib
@@ -39,11 +38,6 @@ def bits_from_bytes(payload):
             yield (b >> shift) & 1
 
 
-def keystream(seed, size):
-    rng = random.Random(seed)
-    return bytes(rng.randrange(0, 256) for _ in range(size))
-
-
 def main():
     data = bytearray(INFILE.read_bytes())
     aud_offsets = []
@@ -60,14 +54,7 @@ def main():
     if len(aud_offsets) < 430:
         raise SystemExit("not enough AUD units")
 
-    # The key is reproducible from image-bearing NAL sizes, but it is not stored as text.
-    material = ",".join(map(str, vcl_sizes[:64])).encode()
-    seed = int.from_bytes(hashlib.sha256(material).digest()[:8], "big")
-
-    compressed = zlib.compress(FLAG, level=9)
-    mask = keystream(seed, len(compressed))
-    cipher = bytes(a ^ b for a, b in zip(compressed, mask))
-    packet = b"AU" + struct.pack(">H", len(cipher)) + cipher + struct.pack(">I", zlib.crc32(FLAG))
+    packet = b"AU" + struct.pack(">H", len(FLAG)) + FLAG + struct.pack(">I", zlib.crc32(FLAG))
     bits = list(bits_from_bytes(packet))
 
     noise = random.Random(0xC0DEC0DE)
@@ -79,11 +66,14 @@ def main():
         pos = (START + STEP * k) % len(aud_offsets)
         rbsp = aud_offsets[pos]
         primary = ((data[rbsp] >> 5) & 0x07)
-        primary = (primary & 0x06) | bit
+        # Hide the payload as a relation between AUD and the corresponding VCL size.
+        # Raw AUD parity alone is only noise.
+        wanted_lsb = bit ^ (vcl_sizes[pos] & 1)
+        primary = (primary & 0x06) | wanted_lsb
         data[rbsp] = (data[rbsp] & 0x1F) | (primary << 5)
 
     OUTFILE.write_bytes(data)
-    print(f"AUD={len(aud_offsets)} VCL={len(vcl_sizes)} bits={len(bits)} seed=0x{seed:016x}")
+    print(f"AUD={len(aud_offsets)} VCL={len(vcl_sizes)} bits={len(bits)} start={START} step={STEP}")
 
 
 if __name__ == "__main__":

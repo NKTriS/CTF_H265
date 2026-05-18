@@ -3,8 +3,6 @@ import re
 import sys
 import zlib
 import struct
-import hashlib
-import random
 from pathlib import Path
 from math import gcd
 
@@ -55,31 +53,20 @@ def read_aud_bits_and_vcl_sizes(data: bytes):
     return bits, vcl_sizes
 
 
-def keystream(seed, size):
-    rng = random.Random(seed)
-    return bytes(rng.randrange(0, 256) for _ in range(size))
-    return bits
-
-
-def decode_walk(bits, start, step, seed):
+def decode_walk(aud_bits, vcl_bits, start, step):
     walked = []
     pos = start
-    for _ in range(len(bits)):
-        walked.append(bits[pos])
-        pos = (pos + step) % len(bits)
+    for _ in range(len(aud_bits)):
+        walked.append(aud_bits[pos] ^ vcl_bits[pos])
+        pos = (pos + step) % len(aud_bits)
     raw = bits_to_bytes(walked)
     if len(raw) < 8 or raw[:2] != b"AU":
         return b""
     size = struct.unpack(">H", raw[2:4])[0]
     if not 0 < size < 256 or len(raw) < 4 + size + 4:
         return b""
-    cipher = raw[4:4 + size]
+    plain = raw[4:4 + size]
     crc_expected = struct.unpack(">I", raw[4 + size:8 + size])[0]
-    plain_zip = bytes(a ^ b for a, b in zip(cipher, keystream(seed, size)))
-    try:
-        plain = zlib.decompress(plain_zip)
-    except zlib.error:
-        return b""
     if zlib.crc32(plain) != crc_expected:
         return b""
     return plain
@@ -92,8 +79,7 @@ def main():
 
     data = Path(sys.argv[1]).read_bytes()
     bits, vcl_sizes = read_aud_bits_and_vcl_sizes(data)
-    material = ",".join(map(str, vcl_sizes[:64])).encode()
-    seed = int.from_bytes(hashlib.sha256(material).digest()[:8], "big")
+    vcl_bits = [size & 1 for size in vcl_sizes[:len(bits)]]
 
     print(f"AUD_NAL_COUNT={len(bits)}")
 
@@ -101,7 +87,7 @@ def main():
         for step in range(1, len(bits)):
             if gcd(step, len(bits)) != 1:
                 continue
-            stream = decode_walk(bits, start, step, seed)
+            stream = decode_walk(bits, vcl_bits, start, step)
             match = re.search(rb"HEVC\{[ -~]+?\}", stream)
             if match:
                 print(f"WALK_START={start}")

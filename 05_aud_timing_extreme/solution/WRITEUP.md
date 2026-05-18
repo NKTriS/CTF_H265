@@ -111,13 +111,13 @@ AUD có header NAL 2 byte. Byte RBSP đầu tiên sau header chứa trường `p
 primary_pic_type = (nal[2] >> 5) & 0x07
 ```
 
-Trong bài này, bit thấp nhất của `primary_pic_type` được dùng làm bit ẩn:
+Nếu chỉ nhìn riêng AUD, ứng viên dễ thấy nhất là bit thấp nhất của `primary_pic_type`:
 
 ```python
-bit = primary_pic_type & 1
+aud_lsb = primary_pic_type & 1
 ```
 
-Nếu lấy tuần tự tất cả bit AUD rồi ghép byte, ta không thấy flag. Đây là bẫy của bài: đúng kênh nhưng sai thứ tự.
+Nhưng đây chưa phải bit thật. Nếu lấy tuần tự tất cả `aud_lsb` rồi ghép byte, ta không thấy flag. Đây là bẫy của bài: đúng vùng nghi vấn nhưng chưa đúng cách đọc.
 
 ## 6. Vì sao đọc tuần tự không ra
 
@@ -137,31 +137,33 @@ AU
 
 Đây là dấu hiệu đã đi đúng đường.
 
-## 7. Cấu trúc payload
+## 7. Lớp che giấu chính
 
-Stream thật không chứa flag plaintext. Cấu trúc gói:
+Điểm khó của bài không phải là crypto. Bài cố tình làm cho AUD nhìn như nhiễu bằng cách không lưu bit trực tiếp trong AUD.
+
+Bit thật được tạo từ quan hệ giữa AUD và kích thước VCL NAL cùng nhịp:
+
+```text
+hidden_bit = aud_lsb XOR (vcl_size & 1)
+```
+
+Trong đó:
+
+- `aud_lsb` là bit thấp nhất của `primary_pic_type`.
+- `vcl_size` là kích thước NAL ảnh tương ứng.
+
+Vì vậy nếu chỉ lấy `aud_lsb` theo thứ tự thì ta chỉ thấy nhiễu. Nhưng khi XOR với parity của VCL size, stream thật hiện ra.
+
+Sau khi khôi phục đúng bit, cấu trúc gói là:
 
 ```text
 magic       2 byte  "AU"
 length      2 byte  big-endian
-ciphertext  n byte
+payload     n byte  flag ASCII
 crc32       4 byte  crc32(flag)
 ```
 
-`ciphertext` được tạo bằng:
-
-```text
-zlib(flag) XOR PRNG(seed)
-```
-
-Seed không phải mật khẩu ngoài. Seed được lấy từ chính bitstream:
-
-```python
-material = ",".join(map(str, vcl_sizes[:64])).encode()
-seed = int.from_bytes(sha256(material).digest()[:8], "big")
-```
-
-Trong đó `vcl_sizes` là kích thước các VCL NAL đầu tiên. Vì vậy người giải phải parse cả AUD và VCL.
+CRC32 chỉ dùng để xác nhận đã đọc đúng, không phải một lớp crypto.
 
 ## 8. Solve script hoàn chỉnh
 
@@ -200,11 +202,10 @@ bits.append(primary_pic_type & 1)
 Đoạn này lấy bit ẩn từ AUD.
 
 ```python
-material = ",".join(map(str, vcl_sizes[:64])).encode()
-seed = int.from_bytes(hashlib.sha256(material).digest()[:8], "big")
+vcl_bits = [size & 1 for size in vcl_sizes[:len(bits)]]
 ```
 
-Đoạn này dựng seed từ kích thước các NAL ảnh đầu tiên.
+Đoạn này lấy parity của kích thước VCL NAL tương ứng. Đây là “cái bóng” của dữ liệu ảnh dùng để bỏ nhiễu khỏi AUD.
 
 ```python
 for start in range(len(bits)):
@@ -216,11 +217,10 @@ for start in range(len(bits)):
 Đoạn này brute force lịch lấy mẫu.
 
 ```python
-plain_zip = bytes(a ^ b for a, b in zip(cipher, keystream(seed, size)))
-plain = zlib.decompress(plain_zip)
+walked.append(aud_bits[pos] ^ vcl_bits[pos])
 ```
 
-Đoạn này bỏ lớp XOR mask và giải nén zlib.
+Đoạn này khôi phục bit thật bằng quan hệ giữa AUD và VCL size.
 
 ## 9. Kết quả
 
