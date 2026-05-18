@@ -1,65 +1,236 @@
 # AUD Timing - Writeup
 
-## Nguồn video
+## 1. Thông tin bài
 
-Video được tạo từ Big Buck Bunny Sunflower 1080p MP4 mirror:
+File public chính:
+
+```text
+bunny_aud_suspect.hevc
+```
+
+File `bunny_aud_suspect.mp4` chỉ dùng để xem nhanh video. Khi phân tích nên dùng file `.hevc`, vì đây là bitstream Annex-B dễ parse hơn.
+
+Nguồn video gốc:
 
 ```text
 https://mirror.umd.edu/xbmc/demo-files/BBB/bbb_sunflower_1080p_30fps_normal.mp4
 ```
 
-Nguồn metadata của file gốc ghi Creative Commons Attribution 3.0.
+Video gốc là Big Buck Bunny Sunflower, metadata ghi Creative Commons Attribution 3.0.
 
-## Ý tưởng
+## 2. Kiểm tra ban đầu
 
-Challenge dùng video Big Buck Bunny đã mã hóa H.265. Kênh giấu tin không nằm trong pixel, SEI, filler, motion vector hay CABAC trace. Payload nằm trong chuỗi `Access Unit Delimiter` NAL, cụ thể là bit chẵn/lẻ của trường `primary_pic_type`.
+Dùng `ffprobe` để xác nhận file là H.265/HEVC hợp lệ:
 
-Trong HEVC, AUD là NAL type `35`. NAL này có thể xuất hiện trước access unit để báo loại ảnh chính. Vì nó không phải dữ liệu ảnh, video vẫn xem bình thường.
-
-Để tránh việc đọc tuần tự là ra flag ngay, challenge trộn thêm nhiễu vào các AUD còn lại. Stream thật được ghi theo một bước nhảy cố định trên danh sách AUD:
-
-```text
-start = 19
-step  = 73
+```bash
+ffprobe -v error -select_streams v:0 \
+  -show_entries stream=codec_name,width,height,r_frame_rate,duration \
+  -of default=noprint_wrappers=1 bunny_aud_suspect.mp4
 ```
 
-Stream thật cũng không chứa flag ASCII trực tiếp. Cấu trúc gói là:
+Kết quả mong đợi:
 
 ```text
-magic       = "AU"
-length      = 2 byte big-endian
-ciphertext  = zlib(flag) XOR PRNG(seed)
-crc32       = crc32(flag)
+codec_name=hevc
+width=1920
+height=1080
+r_frame_rate=30/1
+duration=18.000000
 ```
 
-Seed PRNG được lấy từ SHA-256 của kích thước 64 VCL NAL đầu tiên. Vì vậy người giải phải vừa tìm đúng kênh, đúng lịch lấy mẫu, vừa dựng lại khóa từ chính bitstream.
+Thử tìm flag trực tiếp:
 
-## Cách giải
+```bash
+strings bunny_aud_suspect.hevc | grep -i HEVC
+```
 
-1. Parse Annex-B start code `00 00 01` hoặc `00 00 00 01`.
-2. Lọc các NAL có `nal_unit_type = 35`.
-3. Với mỗi AUD, đọc byte RBSP đầu tiên sau header NAL 2 byte.
-4. Tính:
+Không có flag ASCII rõ ràng. Điều này cho thấy payload không được nhét thẳng dưới dạng chuỗi.
+
+## 3. Hướng phân tích
+
+Hint nói không nên tìm chữ trong ảnh và không phải mọi NAL đều là hình ảnh. Vì vậy hướng hợp lý là parse cấu trúc H.265.
+
+H.265 Annex-B gồm nhiều NAL unit, mỗi NAL thường bắt đầu bằng start code:
 
 ```text
-primary_pic_type = rbsp_byte >> 5
+00 00 01
+00 00 00 01
+```
+
+Trong mỗi NAL, byte header đầu tiên chứa `nal_unit_type`:
+
+```python
+nal_unit_type = (nal[0] >> 1) & 0x3f
+```
+
+Các NAL type từ `0` đến `31` là VCL, tức dữ liệu ảnh thật. Một số type khác là metadata/control NAL.
+
+## 4. Đếm loại NAL
+
+Đoạn script nhỏ để thống kê:
+
+```python
+from collections import Counter
+from pathlib import Path
+
+data = Path("bunny_aud_suspect.hevc").read_bytes()
+
+starts = []
+i = 0
+while i < len(data) - 3:
+    if data[i:i+3] == b"\x00\x00\x01":
+        starts.append((i, 3))
+        i += 3
+    elif data[i:i+4] == b"\x00\x00\x00\x01":
+        starts.append((i, 4))
+        i += 4
+    else:
+        i += 1
+
+counter = Counter()
+for idx, (start, sc_len) in enumerate(starts):
+    end = starts[idx + 1][0] if idx + 1 < len(starts) else len(data)
+    nal = data[start + sc_len:end]
+    if len(nal) < 2:
+        continue
+    ntype = (nal[0] >> 1) & 0x3f
+    counter[ntype] += 1
+
+print(counter)
+```
+
+Điểm cần chú ý là NAL type `35` xuất hiện nhiều và đều theo số frame. Trong HEVC, type `35` là Access Unit Delimiter, viết tắt là AUD.
+
+AUD không phải dữ liệu ảnh. Nó là một NAL nhỏ dùng để đánh dấu access unit, nên nếu thay đổi cẩn thận thì video vẫn xem bình thường.
+
+## 5. Lấy bit từ AUD
+
+AUD có header NAL 2 byte. Byte RBSP đầu tiên sau header chứa trường `primary_pic_type` ở 3 bit cao:
+
+```python
+primary_pic_type = (nal[2] >> 5) & 0x07
+```
+
+Trong bài này, bit thấp nhất của `primary_pic_type` được dùng làm bit ẩn:
+
+```python
 bit = primary_pic_type & 1
 ```
 
-5. Nếu đọc tuần tự không ra ASCII, brute force các cặp `(start, step)` sao cho `gcd(step, AUD_COUNT) = 1`.
-6. Với mỗi cặp, đi qua danh sách AUD theo công thức `pos = (start + k * step) % AUD_COUNT`.
-7. Khi thấy magic `AU`, đọc độ dài ciphertext.
-8. Dựng seed từ SHA-256 của kích thước 64 VCL NAL đầu tiên.
-9. XOR ciphertext với PRNG stream, giải nén zlib.
-10. Kiểm tra CRC32 rồi lấy flag.
+Nếu lấy tuần tự tất cả bit AUD rồi ghép byte, ta không thấy flag. Đây là bẫy của bài: đúng kênh nhưng sai thứ tự.
 
-## Lệnh mẫu
+## 6. Vì sao đọc tuần tự không ra
+
+Challenge có 542 AUD. Nhiều AUD chỉ chứa nhiễu. Stream thật được rải theo một vòng bước nhảy:
+
+```text
+pos = (start + k * step) mod AUD_COUNT
+```
+
+Vì không biết `start` và `step`, ta brute force. Điều kiện `gcd(step, AUD_COUNT) = 1` giúp bước nhảy đi qua toàn bộ vòng thay vì lặp trong một chu kỳ ngắn.
+
+Khi thử đúng lịch, byte đầu của stream là magic:
+
+```text
+AU
+```
+
+Đây là dấu hiệu đã đi đúng đường.
+
+## 7. Cấu trúc payload
+
+Stream thật không chứa flag plaintext. Cấu trúc gói:
+
+```text
+magic       2 byte  "AU"
+length      2 byte  big-endian
+ciphertext  n byte
+crc32       4 byte  crc32(flag)
+```
+
+`ciphertext` được tạo bằng:
+
+```text
+zlib(flag) XOR PRNG(seed)
+```
+
+Seed không phải mật khẩu ngoài. Seed được lấy từ chính bitstream:
+
+```python
+material = ",".join(map(str, vcl_sizes[:64])).encode()
+seed = int.from_bytes(sha256(material).digest()[:8], "big")
+```
+
+Trong đó `vcl_sizes` là kích thước các VCL NAL đầu tiên. Vì vậy người giải phải parse cả AUD và VCL.
+
+## 8. Solve script hoàn chỉnh
+
+Script giải nằm trong:
+
+```text
+solution/solve.py
+```
+
+Cách chạy:
 
 ```bash
 python3 solve.py ../public/bunny_aud_suspect.hevc
 ```
 
-Kết quả:
+Ý nghĩa các phần quan trọng:
+
+```python
+def find_nals(data: bytes):
+```
+
+Hàm này tách bitstream theo start code `00 00 01` hoặc `00 00 00 01`.
+
+```python
+def nal_type(nal: bytes) -> int:
+    return (nal[0] >> 1) & 0x3F
+```
+
+Hàm này lấy loại NAL theo chuẩn HEVC.
+
+```python
+primary_pic_type = (nal[2] >> 5) & 0x07
+bits.append(primary_pic_type & 1)
+```
+
+Đoạn này lấy bit ẩn từ AUD.
+
+```python
+material = ",".join(map(str, vcl_sizes[:64])).encode()
+seed = int.from_bytes(hashlib.sha256(material).digest()[:8], "big")
+```
+
+Đoạn này dựng seed từ kích thước các NAL ảnh đầu tiên.
+
+```python
+for start in range(len(bits)):
+    for step in range(1, len(bits)):
+        if gcd(step, len(bits)) != 1:
+            continue
+```
+
+Đoạn này brute force lịch lấy mẫu.
+
+```python
+plain_zip = bytes(a ^ b for a, b in zip(cipher, keystream(seed, size)))
+plain = zlib.decompress(plain_zip)
+```
+
+Đoạn này bỏ lớp XOR mask và giải nén zlib.
+
+## 9. Kết quả
+
+Chạy solve:
+
+```bash
+python3 solve.py ../public/bunny_aud_suspect.hevc
+```
+
+Output:
 
 ```text
 AUD_NAL_COUNT=542
@@ -68,7 +239,7 @@ WALK_STEP=73
 HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 ```
 
-## Flag
+## 10. Flag
 
 ```text
 HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
