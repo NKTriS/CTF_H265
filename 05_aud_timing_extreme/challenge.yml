@@ -5,7 +5,6 @@ flag: HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 files:
   - public/bunny_aud_suspect.hevc
   - public/bunny_aud_suspect.mp4
-  - public/README.md
   - public/SOURCE.txt
 description: |
   Một đoạn Big Buck Bunny H.265 nhìn rất bình thường. Không có chuỗi flag trong strings,
