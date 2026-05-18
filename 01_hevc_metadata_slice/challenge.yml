@@ -1,7 +1,6 @@
 name: HEVC Metadata Slice
 category: H265 Steganography
 difficulty: easy
-points: 100
 flag: HEVC-LAB{metadata_is_not_pixels}
 files:
   - public/suspicious.hevc

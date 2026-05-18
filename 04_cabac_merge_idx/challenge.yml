@@ -1,7 +1,6 @@
 name: CABAC Merge Index
 category: H265 Steganography
-difficulty: hard
-points: 400
+difficulty: medium
 flag: HEVC{cabac_merge_idx_channel}
 files:
   - public/warehouse-source.mp4

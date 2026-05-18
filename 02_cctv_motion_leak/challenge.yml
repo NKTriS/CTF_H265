@@ -1,7 +1,6 @@
 name: CCTV Motion Leak
 category: H265 Steganography
-difficulty: medium
-points: 200
+difficulty: easy
 flag: HEVC{motion_leak_in_cctv}
 files:
   - public/cctv.hevc

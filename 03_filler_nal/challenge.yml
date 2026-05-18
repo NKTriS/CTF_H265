@@ -1,7 +1,6 @@
 name: Filler NAL Channel
 category: H265 Steganography
-difficulty: medium
-points: 250
+difficulty: easy
 flag: HEVC{filler_nal_length_channel}
 files:
   - public/warehouse-clean.hevc

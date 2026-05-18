@@ -18,18 +18,9 @@ Các file `.zip` trong `dist/` là gói public có thể upload lên platform.
 | ID | Tên | Kỹ thuật | Flag | Độ khó CTF |
 |---|---|---|---|---|
 | 01 | HEVC Metadata Slice | SEI user-data + VCL trailing bytes | `HEVC-LAB{metadata_is_not_pixels}` | Dễ |
-| 02 | CCTV Motion Leak | `mv_x` parity | `HEVC{motion_leak_in_cctv}` | Trung bình |
-| 03 | Filler NAL Channel | Filler Data NAL length parity | `HEVC{filler_nal_length_channel}` | Khá |
-| 04 | CABAC Merge Index | `merge_idx` parity trong trace merge mode | `HEVC{cabac_merge_idx_channel}` | Khó |
-
-## Quy đổi độ khó
-
-| Điểm | Độ khó | Mô tả |
-|---:|---|---|
-| 100 | Dễ | Người chơi cần biết cấu trúc NAL/SEI cơ bản và thử phân tích metadata. |
-| 200 | Trung bình | Cần loại trừ metadata, đọc log, hiểu parity của motion-vector sample. |
-| 250 | Khá | Cần so sánh clean/suspect và phát hiện Filler Data NAL là carrier. |
-| 400 | Khó | Cần hiểu trace cú pháp H.265, lọc record usable và suy ra kênh `merge_idx`. |
+| 02 | CCTV Motion Leak | `mv_x` parity | `HEVC{motion_leak_in_cctv}` | Dễ |
+| 03 | Filler NAL Channel | Filler Data NAL length parity | `HEVC{filler_nal_length_channel}` | Dễ |
+| 04 | CABAC Merge Index | `merge_idx` parity trong trace merge mode | `HEVC{cabac_merge_idx_channel}` | Trung bình |
 
 ## Gợi ý triển khai
 
