@@ -1,4 +1,4 @@
-# AUD Timing Extreme - Writeup
+# AUD Timing - Writeup
 
 ## Nguồn video
 
