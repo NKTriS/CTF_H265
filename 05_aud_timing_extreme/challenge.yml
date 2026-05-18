@@ -5,13 +5,12 @@ flag: HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 files:
   - public/bunny_aud_suspect.hevc
   - public/bunny_aud_suspect.mp4
-  - public/SOURCE.txt
   - public/HINT.txt
 description: |
   Một đoạn Big Buck Bunny H.265 nhìn rất bình thường. Không có chuỗi flag trong strings,
   không có SEI user-data rõ ràng, không có filler payload, không có trace tặng kèm.
   Hãy phân tích bitstream HEVC và tìm kênh giấu tin nằm ở cấp access unit.
 hints:
-  - Người gác cửa xuất hiện trước mỗi cảnh, nhưng không bao giờ bước vào khung hình.
-  - Trật tự của lời chào đôi khi quan trọng hơn nội dung bức tranh.
-  - Một trường rất nhỏ có thể đủ làm nhịp metronome cho cả thông điệp.
+  - Có những nhịp chỉ gây nhiễu, và có những nhịp mới thật sự nói.
+  - Đọc thẳng từ đầu đến cuối sẽ nghe như tiếng ồn.
+  - Hãy thử đi qua các nhịp bằng một bước nhảy cố định.

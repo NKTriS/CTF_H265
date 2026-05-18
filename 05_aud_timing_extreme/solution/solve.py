@@ -2,6 +2,7 @@
 import re
 import sys
 from pathlib import Path
+from math import gcd
 
 
 def find_nals(data: bytes):
@@ -37,32 +38,56 @@ def bits_to_bytes(bits):
     return bytes(out)
 
 
+def read_aud_bits(data: bytes):
+    bits = []
+    for nal in find_nals(data):
+        if nal_type(nal) != 35:
+            continue
+        if len(nal) < 3:
+            continue
+        primary_pic_type = (nal[2] >> 5) & 0x07
+        bits.append(primary_pic_type & 1)
+    return bits
+
+
+def decode_walk(bits, start, step):
+    walked = []
+    pos = start
+    for _ in range(len(bits)):
+        walked.append(bits[pos])
+        pos = (pos + step) % len(bits)
+    raw = bits_to_bytes(walked)
+    if len(raw) < 2:
+        return b""
+    size = int.from_bytes(raw[:2], "big")
+    if not 0 < size < 128:
+        return b""
+    return raw[2:2 + size]
+
+
 def main():
     if len(sys.argv) != 2:
         print(f"usage: {Path(sys.argv[0]).name} bunny_aud_suspect.hevc")
         raise SystemExit(2)
 
     data = Path(sys.argv[1]).read_bytes()
-    bits = []
-    aud_count = 0
+    bits = read_aud_bits(data)
 
-    for nal in find_nals(data):
-        if nal_type(nal) != 35:
-            continue
-        aud_count += 1
-        if len(nal) < 3:
-            continue
-        primary_pic_type = (nal[2] >> 5) & 0x07
-        bits.append(primary_pic_type & 1)
+    print(f"AUD_NAL_COUNT={len(bits)}")
 
-    stream = bits_to_bytes(bits)
-    match = re.search(rb"HEVC\{[ -~]+?\}", stream)
+    for start in range(len(bits)):
+        for step in range(1, len(bits)):
+            if gcd(step, len(bits)) != 1:
+                continue
+            stream = decode_walk(bits, start, step)
+            match = re.search(rb"HEVC\{[ -~]+?\}", stream)
+            if match:
+                print(f"WALK_START={start}")
+                print(f"WALK_STEP={step}")
+                print(match.group(0).decode())
+                return
 
-    print(f"AUD_NAL_COUNT={aud_count}")
-    if not match:
-        print(stream[:96])
-        raise SystemExit("flag not found")
-    print(match.group(0).decode())
+    raise SystemExit("flag not found")
 
 
 if __name__ == "__main__":

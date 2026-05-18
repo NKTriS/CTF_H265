@@ -1,9 +1,0 @@
-Video source:
-- Big Buck Bunny Sunflower 1080p MP4 mirror.
-- Source URL: https://mirror.umd.edu/xbmc/demo-files/BBB/bbb_sunflower_1080p_30fps_normal.mp4
-- Original film: Big Buck Bunny, Blender Foundation.
-- License note: the source metadata lists Creative Commons Attribution 3.0. Big Buck Bunny itself is an open movie released under Creative Commons Attribution. See: https://en.wikipedia.org/wiki/Big_Buck_Bunny
-
-Challenge processing:
-- The source clip was trimmed and re-encoded into a 1920x1080 H.265/HEVC stream for CTF use.
-- The hidden channel was inserted into HEVC Access Unit Delimiter NAL units.
