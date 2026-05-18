@@ -1,3 +1,4 @@
-Đừng tìm chữ trong ảnh, cũng đừng tin rằng mọi NAL đều là hình ảnh.
-Nếu đọc đúng chỗ mà vẫn chỉ thấy nhiễu, đừng chỉ nhìn giá trị tuyệt đối; hãy nhìn nhịp tăng/giảm của NAL ảnh đi kèm.
-Khi bitstream đúng, nó bắt đầu bằng `AU`, tiếp theo là 2 byte độ dài và kết thúc bằng CRC32.
+Hãy tách file `.hevc` thành các NAL unit trước, đừng bắt đầu bằng trích frame ảnh.
+Có một loại NAL điều khiển xuất hiện đều theo nhịp video; bit của nó cần được so với NAL ảnh/VCL đi kèm.
+Nếu chỉ đọc một nguồn mà ra nhiễu, hãy thử XOR với nhịp tăng/giảm kích thước của VCL.
+Khi đúng bitstream, dữ liệu bắt đầu bằng `AU`, tiếp theo là 2 byte độ dài và kết thúc bằng CRC32.
