@@ -1,7 +1,7 @@
 id: 01_silent_frame
 name: Silent Frame
 category: H265 Steganography
-difficulty: medium
+difficulty: easy
 flag: blockChainPTIT{metadata_nopixel}
 files:
   - public/suspicious.hevc

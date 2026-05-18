@@ -1,0 +1,18 @@
+id: 04_borrowed_shortcut
+name: Borrowed Shortcut
+category: H265 Steganography
+difficulty: easy
+flag: blockChainPTIT{merge_path_01}
+files:
+  - public/warehouse-source.mp4
+  - public/merge_trace.csv
+  - public/incident_note.txt
+  - public/HINT.txt
+description: |
+  Video nguồn là H.265 hợp lệ trong MP4. Không có flag trong strings hoặc metadata rõ ràng.
+  SOC cung cấp thêm trace merge mode đã trích xuất từ quá trình phân tích codec.
+  Hãy khôi phục thông điệp ẩn.
+hints:
+  - Khi nhiều hướng có thể được mượn, lựa chọn nhỏ nhất lại để lộ thói quen.
+  - Trong bảng trace, không phải dòng nào cũng đủ tư cách lên tiếng.
+  - Chẵn và lẻ là hai mặt của một chiếc công tắc.

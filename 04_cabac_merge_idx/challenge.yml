@@ -1,7 +1,7 @@
 id: 04_borrowed_shortcut
 name: Borrowed Shortcut
 category: H265 Steganography
-difficulty: medium
+difficulty: easy
 flag: blockChainPTIT{merge_path_01}
 files:
   - public/warehouse-source.mp4

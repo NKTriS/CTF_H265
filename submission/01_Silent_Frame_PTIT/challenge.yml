@@ -1,0 +1,16 @@
+id: 01_silent_frame
+name: Silent Frame
+category: H265 Steganography
+difficulty: easy
+flag: blockChainPTIT{metadata_nopixel}
+files:
+  - public/suspicious.hevc
+  - public/clean.hevc
+  - public/HINT.txt
+description: |
+  SOC nhận được một file HEVC nghi vấn. File xem bình thường và không có flag rõ ràng khi dùng strings.
+  Hãy phân tích cấu trúc NAL để tìm thông điệp ẩn.
+hints:
+  - Có thứ không thuộc khung hình, nhưng vẫn đi cùng luồng hình.
+  - Một người đưa thư đôi khi đứng trước bức tranh.
+  - Khi hai bản gần giống nhau, phần thừa ra thường biết nói.

@@ -17,11 +17,11 @@ Các file `.zip` trong `dist/` là gói public có thể upload lên platform.
 
 | ID | Tên | Kỹ thuật | Flag | Độ khó CTF |
 |---|---|---|---|---|
-| 01 | Silent Frame | SEI user-data + VCL trailing bytes | `blockChainPTIT{metadata_nopixel}` | Trung bình |
-| 02 | Night Shift Camera | `mv_x` parity | `blockChainPTIT{mvx_leaks}` | Trung bình |
+| 01 | Silent Frame | SEI user-data + VCL trailing bytes | `blockChainPTIT{metadata_nopixel}` | Dễ |
+| 02 | Night Shift Camera | `mv_x` parity | `blockChainPTIT{mvx_leaks}` | Dễ |
 | 03 | Empty Crate | Filler Data NAL length parity | `blockChainPTIT{filler_voids_01}` | Dễ |
-| 04 | Borrowed Shortcut | `merge_idx` parity trong trace merge mode | `blockChainPTIT{merge_path_01}` | Trung bình |
-| 05 | The Rabbit Gate | HEVC access-unit control channel | `blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}` | Khá khó |
+| 04 | Borrowed Shortcut | `merge_idx` parity trong trace merge mode | `blockChainPTIT{merge_path_01}` | Dễ |
+| 05 | The Rabbit Gate | HEVC access-unit control channel | `blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}` | Trung bình |
 
 ## Gợi ý triển khai
 

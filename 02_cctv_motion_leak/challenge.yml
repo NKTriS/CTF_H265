@@ -1,7 +1,7 @@
 id: 02_night_shift_camera
 name: Night Shift Camera
 category: H265 Steganography
-difficulty: medium
+difficulty: easy
 flag: blockChainPTIT{mvx_leaks}
 files:
   - public/cctv.hevc

@@ -5,7 +5,7 @@
 - Tên bài: The Rabbit Gate
 - Chủ đề: H.265/HEVC steganography
 - Hình thức: Jeopardy
-- Độ khó đề xuất: Khá khó
+- Độ khó đề xuất: Trung bình
 - Flag format: `blockChainPTIT{}`
 
 ## Mô tả

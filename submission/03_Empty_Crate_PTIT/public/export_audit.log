@@ -1,0 +1,4 @@
+2026-05-13 00:41:08 archive wrote warehouse-clean.hevc from internal camera feed
+2026-05-13 00:49:31 user=ops-video12 exported warehouse-suspect.hevc profile=warehouse-monitor
+2026-05-13 00:50:02 user=ops-video12 uploaded warehouse-suspect.hevc to outside-review queue
+2026-05-13 00:54:19 soc note: stream is decodable; compare NAL types and filler data counts
