@@ -18,7 +18,7 @@ challenge.yml              Metadata challenge
 - Hình thức: Jeopardy
 - Chủ đề: H.265/HEVC steganography
 - Độ khó: Khá khó
-- Số bước trong writeup: 16 bước
+- Writeup trình bày theo mạch giải CTF thông thường, gồm kiểm tra file, parse NAL, phân tích AUD/VCL, brute force lịch đọc và kiểm CRC32.
 - Flag format: `blockChainPTIT{}`
 
 ## Flag
