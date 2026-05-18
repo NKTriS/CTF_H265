@@ -1,6 +1,6 @@
 # Borrowed Shortcut - Writeup
 
-## 1. Xác định file cần phân tích
+## 1. Khảo sát file được cung cấp
 
 Challenge cung cấp:
 
@@ -11,15 +11,9 @@ incident_note.txt
 HINT.txt
 ```
 
-Flag không nằm trực tiếp trong video. Dữ liệu cần phân tích là:
+File video giúp xác nhận bối cảnh, nhưng flag không nằm trực tiếp trong video. File quan trọng nhất là `merge_trace.csv`, đây là trace codec đã được trích xuất sẵn.
 
-```text
-merge_trace.csv
-```
-
-## 2. Kiểm tra video nguồn
-
-Chạy:
+Kiểm tra video:
 
 ```bash
 ffprobe -v error -select_streams v:0 \
@@ -27,27 +21,25 @@ ffprobe -v error -select_streams v:0 \
   -of default=noprint_wrappers=1 warehouse-source.mp4
 ```
 
-Video là HEVC hợp lệ trong MP4.
+Video là HEVC hợp lệ trong container MP4.
 
-## 3. Đọc ghi chú sự cố
+## 2. Đọc bối cảnh và xác định dữ liệu cần phân tích
 
-Mở:
+Đọc ghi chú:
 
 ```bash
 cat incident_note.txt
 ```
 
-Ghi chú giúp xác định đây là bài phân tích trace codec, không phải tìm flag bằng `strings` trong video.
+Ghi chú cho thấy bài này không đi theo hướng `strings` hay metadata trong video, mà tập trung vào trace merge mode.
 
-## 4. Xem cấu trúc merge_trace.csv
-
-Chạy:
+Xem các cột trong CSV:
 
 ```bash
 head merge_trace.csv
 ```
 
-File CSV chứa các trường liên quan đến merge mode, trong đó có:
+Các cột quan trọng:
 
 ```text
 merge_flag
@@ -56,9 +48,9 @@ usable
 merge_idx
 ```
 
-## 5. Lọc record usable
+## 3. Lọc record có thể mang dữ liệu
 
-Không phải dòng nào cũng chứa bit hợp lệ. Chỉ lấy dòng thỏa:
+Không phải mọi dòng trong trace đều hợp lệ để lấy bit. Solver chỉ giữ những dòng thỏa:
 
 ```text
 merge_flag == 1
@@ -73,7 +65,9 @@ if int(row["merge_flag"]) == 1 and int(row["candidate_count"]) >= 2 and int(row[
     ...
 ```
 
-## 6. Lấy bit từ merge_idx
+Điều kiện này loại các block không dùng merge mode, không đủ candidate hoặc được đánh dấu không dùng cho kênh ẩn.
+
+## 4. Trích bit từ merge_idx
 
 Với mỗi record hợp lệ, lấy parity của `merge_idx`:
 
@@ -88,21 +82,23 @@ Trong code:
 bits.append(int(row["merge_idx"]) % 2)
 ```
 
-## 7. Xác định số bit cần đọc
+Đây là kênh ẩn của bài: không thay đổi nội dung video trực tiếp, mà dùng lựa chọn merge candidate trong trace.
 
-Flag có 29 ký tự, tương ứng:
+## 5. Xác định số bit cần đọc
+
+Flag của bài có 29 ký tự, tương ứng:
 
 ```text
 29 * 8 = 232 bit
 ```
 
-Solver lấy:
+Solver lấy 232 bit đầu tiên từ các record hợp lệ:
 
 ```python
 bits[:29 * 8]
 ```
 
-## 8. Ghép bit thành text
+## 6. Ghép bit thành text
 
 Ghép mỗi 8 bit thành 1 byte theo MSB-first:
 
@@ -118,17 +114,17 @@ Kết quả:
 blockChainPTIT{merge_path_01}
 ```
 
-## 9. Xác định tài khoản đáng ngờ
+## 7. Đối chiếu thông tin điều tra
 
-Từ `incident_note.txt`, tài khoản đáng ngờ là:
+Trong `incident_note.txt`, tài khoản đáng ngờ là:
 
 ```text
 cam-admin
 ```
 
-Thông tin này phục vụ bối cảnh điều tra, không phải flag.
+Thông tin này phục vụ câu chuyện điều tra, còn flag được khôi phục từ parity của `merge_idx`.
 
-## 10. Chạy solver
+## 8. Chạy solver xác nhận
 
 ```bash
 python3 solve.py ../public/merge_trace.csv
@@ -140,7 +136,7 @@ Output:
 blockChainPTIT{merge_path_01}
 ```
 
-## Flag
+Flag:
 
 ```text
 blockChainPTIT{merge_path_01}

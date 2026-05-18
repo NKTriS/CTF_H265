@@ -1,6 +1,6 @@
 # Silent Frame - Writeup
 
-## 1. Xác định file cần phân tích
+## 1. Khảo sát file được cung cấp
 
 Challenge cung cấp:
 
@@ -10,44 +10,42 @@ clean.hevc
 HINT.txt
 ```
 
-File cần lấy flag là:
+File cần phân tích chính là `suspicious.hevc`. File `clean.hevc` dùng để đối chiếu khi cần kiểm tra phần nào bị thêm hoặc thay đổi.
 
-```text
-suspicious.hevc
-```
-
-File `clean.hevc` dùng để đối chiếu khi cần.
-
-## 2. Kiểm tra nhanh bằng strings
-
-Chạy:
+Thử tìm flag trực tiếp:
 
 ```bash
-strings suspicious.hevc | grep -i HEVC
+strings suspicious.hevc | grep -i blockChainPTIT
 ```
 
-Không thấy flag đầy đủ. Điều này cho thấy flag không nằm thẳng trong file theo dạng ASCII rõ ràng.
+Không có kết quả. Như vậy flag không nằm thẳng dưới dạng ASCII rõ ràng trong file.
 
-## 3. Parse start code Annex-B
+## 2. Chọn hướng phân tích
 
-File `.hevc` là bitstream Annex-B. Ta tách NAL bằng start code:
+Hint của bài nói đến thứ "không thuộc khung hình" nhưng vẫn đi cùng luồng hình, đồng thời nhắc đến một phần thừa khi so hai file gần giống nhau.
+
+Trong H.265/HEVC, các dữ liệu không trực tiếp là ảnh thường nằm ở những NAL ngoài VCL, ví dụ SEI. Vì vậy hướng hợp lý là parse bitstream HEVC và kiểm tra các NAL metadata/control trước.
+
+## 3. Tách NAL unit trong Annex-B
+
+File `.hevc` dùng dạng Annex-B, các NAL được phân tách bằng start code:
 
 ```text
 00 00 01
 00 00 00 01
 ```
 
-Đoạn code:
+Code tách start code:
 
 ```python
 def find_start_codes(data):
     out = []
     i = 0
     while i < len(data) - 3:
-        if data[i:i+4] == b"\x00\x00\x00\x01":
+        if data[i:i + 4] == b"\x00\x00\x00\x01":
             out.append((i, 4))
             i += 4
-        elif data[i:i+3] == b"\x00\x00\x01":
+        elif data[i:i + 3] == b"\x00\x00\x01":
             out.append((i, 3))
             i += 3
         else:
@@ -55,22 +53,13 @@ def find_start_codes(data):
     return out
 ```
 
-## 4. Tách từng NAL unit
-
-Sau khi có danh sách start code, cắt từng NAL:
+Sau đó cắt từng NAL và lấy `nal_unit_type`:
 
 ```python
-def iter_nals(data):
-    starts = find_start_codes(data)
-    for idx, (start, size) in enumerate(starts):
-        off = start + size
-        end = starts[idx + 1][0] if idx + 1 < len(starts) else len(data)
-        payload = data[off:end]
-        nal_type = (payload[0] >> 1) & 0x3f
-        yield nal_type, payload
+nal_type = (payload[0] >> 1) & 0x3f
 ```
 
-## 5. Tìm SEI NAL
+## 4. Tìm SEI NAL
 
 Trong HEVC:
 
@@ -79,37 +68,33 @@ NAL type 39 = prefix SEI
 NAL type 40 = suffix SEI
 ```
 
-Ta lọc hai loại này:
+Do đó solver lọc hai loại NAL này:
 
 ```python
 if nal_type not in (39, 40):
     continue
 ```
 
-## 6. Chuyển EBSP sang RBSP
+Đây là vị trí hợp lý để giấu dữ liệu vì SEI không phải dữ liệu ảnh, nhưng vẫn là một phần hợp lệ của bitstream video.
 
-Trước khi parse SEI payload, cần bỏ emulation-prevention byte `0x03` sau hai byte `0x00`.
+## 5. Parse payload SEI
+
+Trước khi đọc SEI, cần chuyển EBSP sang RBSP bằng cách bỏ emulation-prevention byte `0x03` sau hai byte `0x00`:
 
 ```python
 def ebsp_to_rbsp(data):
     out = bytearray()
     zeros = 0
-    i = 0
-    while i < len(data):
-        b = data[i]
+    for b in data:
         if zeros >= 2 and b == 0x03:
             zeros = 0
-            i += 1
             continue
         out.append(b)
         zeros = zeros + 1 if b == 0 else 0
-        i += 1
     return bytes(out)
 ```
 
-## 7. Parse SEI payload
-
-SEI dùng cấu trúc:
+SEI payload có cấu trúc:
 
 ```text
 payload_type
@@ -117,23 +102,17 @@ payload_size
 payload
 ```
 
-Trong bài này cần tìm `user_data_unregistered`, có:
+Trong bài này cần tìm `user_data_unregistered`, có `payload_type = 5`.
 
-```text
-payload_type = 5
-```
+## 6. Bỏ UUID và giải dữ liệu sau UUID
 
-## 8. Bỏ UUID trong user_data_unregistered
-
-Payload `user_data_unregistered` bắt đầu bằng 16 byte UUID. Phần sau UUID mới là dữ liệu giấu:
+`user_data_unregistered` bắt đầu bằng 16 byte UUID. Phần sau UUID mới là dữ liệu được giấu:
 
 ```python
 encrypted = payload[16:]
 ```
 
-## 9. Brute force XOR key
-
-Dữ liệu sau UUID bị XOR 1 byte. Thử tất cả key từ `0` đến `255`:
+Dữ liệu này bị XOR bằng một key 1 byte. Brute force toàn bộ 256 key:
 
 ```python
 for key in range(256):
@@ -148,17 +127,25 @@ Kết quả:
 blockChainPTIT{metadata_nopixel}
 ```
 
-## 10. Kiểm tra token phụ
+## 7. Kiểm tra dấu vết phụ trong VCL
 
-Ngoài flag chính trong SEI, file còn có token phụ trong VCL trailing bytes:
+Ngoài flag chính trong SEI, file còn có token phụ trong phần trailing của VCL:
 
 ```text
 SLICE:qpel_path
 ```
 
-Token này dùng để xác nhận rằng file có nhiều hơn một vị trí bất thường, nhưng flag chính vẫn là SEI payload.
+Token này xác nhận file có nhiều dấu hiệu bất thường, nhưng flag chính của challenge vẫn nằm trong SEI `user_data_unregistered`.
 
-## 11. Chạy solver
+## 8. Chạy solver xác nhận
+
+Script giải nằm tại:
+
+```text
+solution/solve.py
+```
+
+Chạy:
 
 ```bash
 python3 solve.py ../public/suspicious.hevc
@@ -170,7 +157,7 @@ Output:
 blockChainPTIT{metadata_nopixel}
 ```
 
-## Flag
+Flag:
 
 ```text
 blockChainPTIT{metadata_nopixel}

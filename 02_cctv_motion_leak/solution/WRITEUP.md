@@ -1,6 +1,6 @@
 # Night Shift Camera - Writeup
 
-## 1. Xác định file cần phân tích
+## 1. Khảo sát file được cung cấp
 
 Challenge cung cấp:
 
@@ -10,17 +10,9 @@ cctv_export.log
 HINT.txt
 ```
 
-File chính là:
+File chính là `cctv.hevc`. File `cctv_export.log` dùng để hoàn thiện bối cảnh điều tra, không phải nơi chứa flag.
 
-```text
-cctv.hevc
-```
-
-File log chỉ dùng để hiểu bối cảnh điều tra.
-
-## 2. Kiểm tra video
-
-Chạy:
+Kiểm tra video:
 
 ```bash
 ffprobe -v error -select_streams v:0 \
@@ -30,64 +22,66 @@ ffprobe -v error -select_streams v:0 \
 
 Kết quả cho thấy đây là video HEVC hợp lệ.
 
-## 3. Kiểm tra metadata dễ thấy
+## 2. Loại hướng metadata đơn giản
 
-Thử:
+Thử tìm chuỗi dễ thấy:
 
 ```bash
-strings cctv.hevc | grep -i HEVC
+strings cctv.hevc | grep -i blockChainPTIT
 ```
 
-Không thấy flag. Hint cũng nói file không có SEI đáng ngờ, nên không đi theo hướng metadata.
+Không có kết quả. Hint cũng nói video không có SEI đáng ngờ, nên hướng giải không phải metadata hay chuỗi ASCII rõ ràng.
 
-## 4. Parse Annex-B NAL
+Nội dung gợi ý tập trung vào "chuyển động", vì vậy cần nhìn vào phần dữ liệu ảnh/VCL và giả lập motion-vector sample.
 
-Tách NAL bằng start code:
+## 3. Parse NAL và lọc VCL NAL
+
+File HEVC Annex-B được tách bằng start code:
 
 ```text
 00 00 01
 00 00 00 01
 ```
 
-Với mỗi NAL, tính:
+Với mỗi NAL, lấy type:
 
 ```python
 nal_type = (nal[0] >> 1) & 0x3f
 ```
 
-## 5. Lọc VCL NAL
-
-Motion vector thuộc phần dữ liệu ảnh, nên tập trung vào VCL NAL:
+Motion vector thuộc phần dữ liệu ảnh, nên solver chỉ lấy VCL NAL:
 
 ```python
 0 <= nal_type <= 31
 ```
 
-Solver chỉ lấy các VCL NAL đủ dài để có byte carrier:
+Đồng thời bỏ qua NAL quá ngắn:
 
 ```python
 if not nal.is_vcl or len(nal.data) < 80:
     continue
 ```
 
-## 6. Lấy vị trí carrier
+## 4. Chọn vị trí carrier trong VCL
 
-Trong mỗi VCL NAL đủ dài, solver lấy hai byte ở vị trí:
+Trong mỗi VCL NAL đủ dài, solver lấy hai byte cố định:
 
 ```python
 for byte_index in (23, 47):
     locations.append((nal, byte_index))
 ```
 
-Lấy tối đa 200 record:
+Tổng cộng lấy tối đa 200 record:
 
 ```python
 MAX_RECORDS = 200
 ```
 
-## 7. Dựng motion-vector sample
+Các byte này đóng vai trò carrier, tức nơi chứa bit ẩn.
 
-Từ byte carrier, solver dựng giá trị `mv_x`:
+## 5. Dựng motion-vector sample từ byte carrier
+
+Solver không đọc motion vector thật từ encoder, mà dựng một trace motion-vector mô phỏng từ byte carrier:
 
 ```python
 raw = nal.data[byte_index]
@@ -98,9 +92,9 @@ if idx % 7 == 0:
     mv_x = -mv_x
 ```
 
-Mục đích là biến bit carrier thành mẫu motion vector có vẻ tự nhiên.
+Điểm quan trọng là bit ẩn nằm ở parity của `mv_x`. Phần magnitude và dấu âm/dương chỉ làm dữ liệu trông giống sample chuyển động tự nhiên hơn.
 
-## 8. Lấy bit từ parity của mv_x
+## 6. Trích bit từ parity của mv_x
 
 Quy tắc:
 
@@ -115,9 +109,11 @@ Trong code:
 bits.append(abs(mv_x) % 2)
 ```
 
-## 9. Ghép bit thành text
+Sau khi thu đủ bit, ghép mỗi 8 bit thành 1 byte theo MSB-first.
 
-Ghép mỗi 8 bit thành 1 byte theo MSB-first:
+## 7. Ghép bit thành flag
+
+Đoạn ghép byte:
 
 ```python
 value = 0
@@ -125,13 +121,13 @@ for bit in bits[offset:offset + 8]:
     value = (value << 1) | bit
 ```
 
-Kết quả:
+Kết quả thu được:
 
 ```text
 blockChainPTIT{mvx_leaks}
 ```
 
-## 10. Đối chiếu log
+## 8. Đối chiếu log điều tra
 
 Đọc log:
 
@@ -139,15 +135,15 @@ blockChainPTIT{mvx_leaks}
 cat cctv_export.log
 ```
 
-User đáng ngờ:
+Log cho biết user đáng ngờ:
 
 ```text
 intern01
 ```
 
-Log không chứa flag, nhưng giúp hoàn thiện bối cảnh điều tra.
+Thông tin này không phải flag, nhưng giúp hoàn thiện câu chuyện điều tra: video đã bị export ra ngoài bởi user này.
 
-## 11. Chạy solver
+## 9. Chạy solver xác nhận
 
 ```bash
 python3 solve.py ../public/cctv.hevc
@@ -159,7 +155,7 @@ Output:
 blockChainPTIT{mvx_leaks}
 ```
 
-## Flag
+Flag:
 
 ```text
 blockChainPTIT{mvx_leaks}
