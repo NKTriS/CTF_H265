@@ -141,18 +141,20 @@ AU
 
 Điểm khó của bài không phải là crypto. Bài cố tình làm cho AUD nhìn như nhiễu bằng cách không lưu bit trực tiếp trong AUD.
 
-Bit thật được tạo từ quan hệ giữa AUD và kích thước VCL NAL cùng nhịp:
+Bit thật được tạo từ quan hệ giữa AUD và biến động kích thước VCL NAL cùng nhịp:
 
 ```text
-hidden_bit = aud_lsb XOR (vcl_size & 1)
+trend_bit  = 1 nếu vcl_size[i] > vcl_size[i-1], ngược lại là 0
+hidden_bit = aud_lsb XOR trend_bit
 ```
 
 Trong đó:
 
 - `aud_lsb` là bit thấp nhất của `primary_pic_type`.
-- `vcl_size` là kích thước NAL ảnh tương ứng.
+- `vcl_size[i]` là kích thước NAL ảnh tương ứng ở nhịp hiện tại.
+- `trend_bit` mô tả việc NAL ảnh hiện tại lớn hơn hay không lớn hơn NAL ảnh trước đó.
 
-Vì vậy nếu chỉ lấy `aud_lsb` theo thứ tự thì ta chỉ thấy nhiễu. Nhưng khi XOR với parity của VCL size, stream thật hiện ra.
+Vì vậy nếu chỉ lấy `aud_lsb` theo thứ tự thì ta chỉ thấy nhiễu. Nếu chỉ dùng parity kích thước tuyệt đối cũng chưa đủ. Cần so biến động giữa hai NAL ảnh liên tiếp rồi XOR với `aud_lsb`.
 
 Sau khi khôi phục đúng bit, cấu trúc gói là:
 
@@ -202,10 +204,13 @@ bits.append(primary_pic_type & 1)
 Đoạn này lấy bit ẩn từ AUD.
 
 ```python
-vcl_bits = [size & 1 for size in vcl_sizes[:len(bits)]]
+vcl_bits = [
+    1 if vcl_sizes[i] > vcl_sizes[(i - 1) % len(vcl_sizes)] else 0
+    for i in range(len(bits))
+]
 ```
 
-Đoạn này lấy parity của kích thước VCL NAL tương ứng. Đây là “cái bóng” của dữ liệu ảnh dùng để bỏ nhiễu khỏi AUD.
+Đoạn này lấy nhịp tăng/giảm của kích thước VCL NAL. Đây là “cái bóng” của dữ liệu ảnh dùng để bỏ nhiễu khỏi AUD.
 
 ```python
 for start in range(len(bits)):
@@ -220,7 +225,7 @@ for start in range(len(bits)):
 walked.append(aud_bits[pos] ^ vcl_bits[pos])
 ```
 
-Đoạn này khôi phục bit thật bằng quan hệ giữa AUD và VCL size.
+Đoạn này khôi phục bit thật bằng quan hệ giữa AUD và biến động kích thước VCL.
 
 ## 9. Kết quả
 

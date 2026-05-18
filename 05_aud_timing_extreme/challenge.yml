@@ -13,5 +13,5 @@ description: |
   Hãy phân tích bitstream HEVC và tìm kênh giấu tin nằm ngoài dữ liệu ảnh hiển thị.
 hints:
   - Có những nhịp chỉ gây nhiễu, và có những nhịp mới thật sự nói.
-  - Đúng chỗ cất giấu chưa chắc đã đủ; hãy so nó với phần hình ảnh đi kèm.
-  - Một bit không đứng một mình, nó đi cùng cái bóng của NAL ảnh cùng nhịp.
+  - Đúng chỗ cất giấu chưa chắc đã đủ; hãy so nó với biến động của phần hình ảnh đi kèm.
+  - Khi đi đúng đường, dữ liệu mở đầu bằng hai chữ cái, rồi tới độ dài và phần kiểm tra lỗi.

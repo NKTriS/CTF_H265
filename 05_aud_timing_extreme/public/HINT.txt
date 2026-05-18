@@ -1,2 +1,3 @@
 Đừng tìm chữ trong ảnh, cũng đừng tin rằng mọi NAL đều là hình ảnh.
-Nếu đọc đúng chỗ mà vẫn chỉ thấy nhiễu, hãy so nhịp đó với NAL ảnh đi kèm.
+Nếu đọc đúng chỗ mà vẫn chỉ thấy nhiễu, đừng chỉ nhìn giá trị tuyệt đối; hãy nhìn nhịp tăng/giảm của NAL ảnh đi kèm.
+Khi bitstream đúng, nó bắt đầu bằng `AU`, tiếp theo là 2 byte độ dài và kết thúc bằng CRC32.

@@ -79,7 +79,10 @@ def main():
 
     data = Path(sys.argv[1]).read_bytes()
     bits, vcl_sizes = read_aud_bits_and_vcl_sizes(data)
-    vcl_bits = [size & 1 for size in vcl_sizes[:len(bits)]]
+    vcl_bits = [
+        1 if vcl_sizes[i] > vcl_sizes[(i - 1) % len(vcl_sizes)] else 0
+        for i in range(len(bits))
+    ]
 
     print(f"AUD_NAL_COUNT={len(bits)}")
 

@@ -66,9 +66,10 @@ def main():
         pos = (START + STEP * k) % len(aud_offsets)
         rbsp = aud_offsets[pos]
         primary = ((data[rbsp] >> 5) & 0x07)
-        # Hide the payload as a relation between AUD and the corresponding VCL size.
-        # Raw AUD parity alone is only noise.
-        wanted_lsb = bit ^ (vcl_sizes[pos] & 1)
+        # Hide the payload as a relation between AUD and the local VCL size trend.
+        # Raw AUD parity alone is only noise; absolute VCL size parity is also not enough.
+        trend_bit = 1 if vcl_sizes[pos] > vcl_sizes[(pos - 1) % len(vcl_sizes)] else 0
+        wanted_lsb = bit ^ trend_bit
         primary = (primary & 0x06) | wanted_lsb
         data[rbsp] = (data[rbsp] & 0x1F) | (primary << 5)
 
