@@ -1,20 +1,26 @@
 # AUD Timing - Writeup
 
-## 1. Tổng quan
+## 1. Xác định file cần phân tích
 
-Challenge cung cấp một video H.265/HEVC hợp lệ. Video phát bình thường, không có flag khi soi bằng `strings`, và không có file trace đi kèm. Hướng giải không phải soi từng frame ảnh, mà là phân tích cấu trúc bitstream H.265.
+Challenge phát cho người chơi các file:
 
-File cần phân tích chính là:
+```text
+bunny_aud_suspect.hevc
+bunny_aud_suspect.mp4
+HINT.txt
+```
+
+File chính cần phân tích là:
 
 ```text
 bunny_aud_suspect.hevc
 ```
 
-File `bunny_aud_suspect.mp4` chỉ dùng để xem nhanh nội dung video.
+File `.mp4` chỉ dùng để xem nhanh video, còn file `.hevc` là bitstream Annex-B thuận tiện hơn cho việc tách NAL unit.
 
-## 2. Kiểm tra file
+## 2. Kiểm tra video bằng ffprobe
 
-Trước hết kiểm tra video bằng `ffprobe`:
+Chạy:
 
 ```bash
 ffprobe -v error -select_streams v:0 \
@@ -32,37 +38,55 @@ r_frame_rate=30/1
 duration=18.000000
 ```
 
-Tiếp theo thử tìm flag trực tiếp:
+Video là H.265/HEVC hợp lệ.
+
+## 3. Kiểm tra flag plaintext
+
+Thử tìm flag trực tiếp:
 
 ```bash
 strings bunny_aud_suspect.hevc | grep -i blockChainPTIT
 ```
 
-Không có kết quả. Như vậy flag không được nhúng trực tiếp dưới dạng chuỗi ASCII.
+Không có kết quả. Điều này cho thấy flag không nằm thẳng dưới dạng chuỗi ASCII trong file.
 
-## 3. Parse H.265 NAL
+## 4. Đọc hint và chọn hướng phân tích
 
-H.265 Annex-B bitstream gồm nhiều NAL unit. Mỗi NAL thường bắt đầu bằng một trong hai start code:
+Hint nói:
+
+```text
+Đừng soi từng khung hình; hãy đứng ở cửa ra vào của mỗi nhịp video.
+Người gác cửa thì thầm rất khẽ; cái bóng của bức tranh phía sau chỉ rõ lời thì thầm ấy nên lật hay giữ.
+Con đường không đi từng viên gạch liền nhau; có vài viên chỉ được đặt để đánh lạc hướng.
+Nếu nghe đúng nhịp, lá thư mở đầu bằng hai chữ `AU`, sau đó là độ dài và một dấu kiểm ở cuối.
+```
+
+Từ hint này, không nên bắt đầu bằng OCR, LSB pixel hay trích frame ảnh. Hướng hợp lý hơn là phân tích cấu trúc H.265 ở mức bitstream/NAL.
+
+## 5. Đọc file HEVC ở dạng byte
+
+Trong Python:
+
+```python
+from pathlib import Path
+
+data = Path("bunny_aud_suspect.hevc").read_bytes()
+```
+
+Ta làm việc trực tiếp với byte của file vì cần tách NAL unit.
+
+## 6. Tìm start code Annex-B
+
+H.265 Annex-B dùng start code để phân tách NAL:
 
 ```text
 00 00 01
 00 00 00 01
 ```
 
-Ta tách file thành các NAL, sau đó lấy `nal_unit_type` bằng công thức:
+Đoạn code tìm start code:
 
 ```python
-nal_unit_type = (nal[0] >> 1) & 0x3f
-```
-
-Đoạn code thống kê nhanh:
-
-```python
-from collections import Counter
-from pathlib import Path
-
-data = Path("bunny_aud_suspect.hevc").read_bytes()
-
 starts = []
 i = 0
 while i < len(data) - 3:
@@ -74,6 +98,38 @@ while i < len(data) - 3:
         i += 4
     else:
         i += 1
+```
+
+Mỗi vị trí trong `starts` là điểm bắt đầu của một NAL unit.
+
+## 7. Tách NAL unit
+
+Từ danh sách start code, cắt từng NAL:
+
+```python
+for idx, (start, sc_len) in enumerate(starts):
+    end = starts[idx + 1][0] if idx + 1 < len(starts) else len(data)
+    nal = data[start + sc_len:end]
+```
+
+`sc_len` là độ dài start code. Phần `nal` sau khi cắt không còn start code.
+
+## 8. Tính nal_unit_type
+
+Trong HEVC, loại NAL được lấy từ byte đầu tiên của NAL header:
+
+```python
+nal_unit_type = (nal[0] >> 1) & 0x3f
+```
+
+Các NAL type từ `0` đến `31` là VCL, tức dữ liệu ảnh. Các type khác là metadata/control NAL.
+
+## 9. Thống kê NAL type
+
+Dùng `Counter` để đếm các loại NAL:
+
+```python
+from collections import Counter
 
 counter = Counter()
 for idx, (start, sc_len) in enumerate(starts):
@@ -87,60 +143,110 @@ for idx, (start, sc_len) in enumerate(starts):
 print(counter)
 ```
 
-Khi thống kê, NAL type `35` xuất hiện đều theo nhịp video. Trong HEVC, type `35` là **Access Unit Delimiter** (AUD). AUD không chứa ảnh, mà là NAL điều khiển/đánh dấu access unit. Đây khớp với hint “cửa ra vào của mỗi nhịp video”.
+Điểm đáng chú ý là NAL type `35` xuất hiện nhiều và đều theo nhịp video.
 
-## 4. Trích bit ứng viên từ AUD
+## 10. Xác định NAL type 35 là AUD
 
-AUD có header NAL 2 byte. Byte RBSP đầu tiên sau header chứa `primary_pic_type` ở 3 bit cao:
+Trong HEVC, NAL type `35` là **Access Unit Delimiter** (AUD).
+
+AUD không chứa dữ liệu ảnh. Nó là NAL điều khiển dùng để đánh dấu access unit, rất khớp với hình ảnh “người gác cửa” trong hint.
+
+Vì vậy ta tập trung vào các NAL type `35`.
+
+## 11. Lấy primary_pic_type từ AUD
+
+AUD có NAL header 2 byte. Byte RBSP đầu tiên sau header chứa `primary_pic_type` ở 3 bit cao:
 
 ```python
 primary_pic_type = (nal[2] >> 5) & 0x07
 ```
 
-Nếu chỉ nhìn riêng AUD, bit có khả năng mang dữ liệu là bit thấp nhất:
+Trong file này, các AUD thường có dạng:
+
+```text
+46 01 xx
+```
+
+Trong đó `xx >> 5` cho ra `primary_pic_type`.
+
+## 12. Lấy bit ứng viên từ AUD
+
+Hint nói “người gác cửa thì thầm rất khẽ”, nên ta không lấy toàn bộ `primary_pic_type`, mà lấy bit nhỏ nhất:
 
 ```python
 aud_lsb = primary_pic_type & 1
 ```
 
-Tuy nhiên, đọc tuần tự toàn bộ `aud_lsb` không ra flag. Điều này cho thấy AUD chỉ là một nửa của kênh giấu tin.
+Nếu ghép tuần tự toàn bộ `aud_lsb`, dữ liệu vẫn là nhiễu. Như vậy AUD chỉ là một nửa của quan hệ giấu tin.
 
-## 5. Kết hợp với VCL NAL
+## 13. Thu thập kích thước VCL NAL
 
-Các NAL type từ `0` đến `31` là VCL, tức NAL chứa dữ liệu ảnh. Hint nói “cái bóng tăng/giảm của bức tranh phía sau”, nên ta lấy kích thước VCL NAL theo từng nhịp và so với VCL trước đó.
+Các NAL type từ `0` đến `31` là VCL NAL. Đây là dữ liệu ảnh thật.
 
-Với mỗi vị trí `i`:
+Ta lưu kích thước của từng VCL:
 
 ```python
-trend_bit = 1 if vcl_size[i] > vcl_size[i - 1] else 0
+vcl_sizes = []
+
+for nal in nals:
+    ntype = nal_type(nal)
+    if 0 <= ntype <= 31:
+        vcl_sizes.append(len(nal))
+```
+
+Hint gọi đây là “cái bóng của bức tranh phía sau”.
+
+## 14. Tạo trend_bit từ biến động kích thước VCL
+
+Ta so kích thước VCL hiện tại với VCL ngay trước đó:
+
+```python
+trend_bit = 1 if vcl_sizes[i] > vcl_sizes[i - 1] else 0
+```
+
+Nếu VCL hiện tại lớn hơn VCL trước đó, `trend_bit = 1`. Ngược lại, `trend_bit = 0`.
+
+## 15. Khôi phục hidden_bit
+
+Bit thật được tạo bằng quan hệ giữa AUD và biến động kích thước VCL:
+
+```python
 hidden_bit = aud_lsb ^ trend_bit
 ```
 
-Ý tưởng là: AUD tạo ra một bit ứng viên, còn biến động kích thước VCL quyết định bit đó nên giữ nguyên hay lật. Vì vậy nếu chỉ đọc AUD thì thấy nhiễu, còn khi kết hợp với VCL trend thì stream có cấu trúc.
+Vì vậy nếu chỉ đọc AUD thì thấy nhiễu. Khi kết hợp AUD với VCL trend, ta mới có chuỗi bit đúng.
 
-## 6. Không đọc tuần tự
+## 16. Brute force lịch đọc start/step
 
-Sau khi tính được `hidden_bit`, nếu ghép tuần tự vẫn chưa ra flag. Hint nói “con đường không đi từng viên gạch liền nhau”, nên cần thử đọc chuỗi bit theo một bước nhảy cố định:
+Sau khi có `hidden_bit`, đọc tuần tự vẫn chưa ra flag. Hint nói “con đường không đi từng viên gạch liền nhau”.
+
+Ta thử đọc theo công thức:
 
 ```text
 pos = (start + k * step) mod AUD_COUNT
 ```
 
-Ta brute force `start` và `step`. Với `step`, nên yêu cầu:
+Chỉ thử các `step` có:
 
 ```python
 gcd(step, AUD_COUNT) == 1
 ```
 
-để đường đi có thể quét qua toàn bộ chuỗi thay vì bị kẹt trong chu kỳ ngắn.
+để đường đi có thể quét qua toàn bộ chuỗi.
 
-Khi đúng lịch đọc, stream bắt đầu bằng magic:
+Đoạn brute force:
 
-```text
-AU
+```python
+for start in range(len(bits)):
+    for step in range(1, len(bits)):
+        if gcd(step, len(bits)) != 1:
+            continue
+        stream = decode_walk(bits, vcl_bits, start, step)
 ```
 
-Sau đó là 2 byte độ dài, payload và CRC32:
+## 17. Ghép bit và kiểm packet
+
+Ghép bit theo MSB-first thành byte. Packet đúng có dạng:
 
 ```text
 magic       2 byte  "AU"
@@ -149,11 +255,17 @@ payload     n byte  flag ASCII
 crc32       4 byte  crc32(payload)
 ```
 
-CRC32 không phải crypto, chỉ dùng để xác nhận rằng ta đã đọc đúng lịch và đúng bit.
+Khi brute force đúng, packet bắt đầu bằng:
 
-## 7. Solver
+```text
+AU
+```
 
-Script giải hoàn chỉnh nằm trong:
+Sau đó đọc 2 byte độ dài, lấy payload và kiểm CRC32.
+
+## 18. Chạy solver hoàn chỉnh
+
+Script giải nằm tại:
 
 ```text
 solution/solve.py
@@ -165,66 +277,7 @@ Chạy:
 python3 solve.py ../public/bunny_aud_suspect.hevc
 ```
 
-Các phần chính của solver:
-
-Tách NAL theo start code:
-
-```python
-def find_nals(data: bytes):
-```
-
-Tính loại NAL:
-
-```python
-def nal_type(nal: bytes) -> int:
-    return (nal[0] >> 1) & 0x3F
-```
-
-Lấy bit ứng viên từ AUD:
-
-```python
-primary_pic_type = (nal[2] >> 5) & 0x07
-bits.append(primary_pic_type & 1)
-```
-
-Tạo bit tăng/giảm từ VCL:
-
-```python
-vcl_bits = [
-    1 if vcl_sizes[i] > vcl_sizes[(i - 1) % len(vcl_sizes)] else 0
-    for i in range(len(bits))
-]
-```
-
-Khôi phục bit thật:
-
-```python
-walked.append(aud_bits[pos] ^ vcl_bits[pos])
-```
-
-Brute force lịch đọc:
-
-```python
-for start in range(len(bits)):
-    for step in range(1, len(bits)):
-        if gcd(step, len(bits)) != 1:
-            continue
-```
-
-Kiểm tra packet:
-
-```python
-if raw[:2] != b"AU":
-    return b""
-
-size = struct.unpack(">H", raw[2:4])[0]
-plain = raw[4:4 + size]
-crc_expected = struct.unpack(">I", raw[4 + size:8 + size])[0]
-```
-
-## 8. Kết quả
-
-Output khi chạy solver:
+Output:
 
 ```text
 AUD_NAL_COUNT=542
@@ -233,27 +286,7 @@ WALK_STEP=73
 blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 ```
 
-## 9. Các bước thực hiện
-
-1. Mở thư mục public và xác định file chính cần phân tích là `bunny_aud_suspect.hevc`.
-2. Dùng `ffprobe` kiểm tra `bunny_aud_suspect.mp4` để xác nhận video dùng codec HEVC/H.265.
-3. Dùng `strings` trên file `.hevc` để kiểm tra không có flag plaintext.
-4. Đọc `HINT.txt` và loại hướng soi frame ảnh/pixel.
-5. Đọc file `.hevc` ở dạng byte.
-6. Tìm các start code Annex-B `00 00 01` và `00 00 00 01`.
-7. Dựa vào start code để tách file thành các NAL unit.
-8. Với mỗi NAL, tính `nal_unit_type = (nal[0] >> 1) & 0x3f`.
-9. Thống kê số lượng từng loại NAL và nhận thấy NAL type `35` xuất hiện đều theo nhịp video.
-10. Tra/nhận biết NAL type `35` là Access Unit Delimiter (AUD), tức “người gác cửa” trong hint.
-11. Với mỗi AUD, đọc `primary_pic_type = (nal[2] >> 5) & 0x07`.
-12. Lấy bit ứng viên từ AUD bằng `aud_lsb = primary_pic_type & 1`.
-13. Thu thập kích thước các VCL NAL, tức các NAL type từ `0` đến `31`.
-14. Với mỗi VCL, tạo `trend_bit = 1` nếu kích thước VCL hiện tại lớn hơn VCL trước đó, ngược lại là `0`.
-15. Khôi phục bit thật bằng `hidden_bit = aud_lsb XOR trend_bit`.
-16. Vì đọc tuần tự vẫn là nhiễu, brute force cặp `(start, step)` và chỉ giữ các `step` có `gcd(step, AUD_COUNT) = 1`.
-17. Ghép bit theo MSB-first, kiểm packet bắt đầu bằng `AU`, đọc 2 byte độ dài, payload và CRC32 để lấy flag.
-
-## 10. Flag
+## 19. Flag
 
 ```text
 blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
