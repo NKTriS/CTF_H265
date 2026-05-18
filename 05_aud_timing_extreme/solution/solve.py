@@ -91,7 +91,7 @@ def main():
             if gcd(step, len(bits)) != 1:
                 continue
             stream = decode_walk(bits, vcl_bits, start, step)
-            match = re.search(rb"HEVC\{[ -~]+?\}", stream)
+            match = re.search(rb"blockChainPTIT\{[ -~]+?\}", stream)
             if match:
                 print(f"WALK_START={start}")
                 print(f"WALK_STEP={step}")

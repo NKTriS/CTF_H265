@@ -6,7 +6,7 @@ from pathlib import Path
 
 INFILE = Path("../public/bunny_aud_suspect.hevc")
 OUTFILE = Path("../public/bunny_aud_suspect.hevc")
-FLAG = b"HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}"
+FLAG = b"blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}"
 START = 19
 STEP = 73
 

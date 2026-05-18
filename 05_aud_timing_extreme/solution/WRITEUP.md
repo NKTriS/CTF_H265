@@ -227,7 +227,28 @@ walked.append(aud_bits[pos] ^ vcl_bits[pos])
 
 Đoạn này khôi phục bit thật bằng quan hệ giữa AUD và biến động kích thước VCL.
 
-## 9. Kết quả
+## 9. Quy trình giải 16 bước
+
+Phần này liệt kê rõ các bước làm để đáp ứng yêu cầu writeup của bài Jeopardy.
+
+1. Mở file public, xác định file cần phân tích chính là `bunny_aud_suspect.hevc`.
+2. Dùng `ffprobe` kiểm tra video hợp lệ và xác nhận codec là `hevc`.
+3. Dùng `strings` tìm nhanh flag plaintext, xác nhận không có chuỗi `blockChainPTIT{}` lộ trực tiếp.
+4. Đọc hint và loại hướng soi từng frame/pixel.
+5. Parse file `.hevc` theo start code Annex-B `00 00 01` và `00 00 00 01`.
+6. Với mỗi NAL, tính `nal_unit_type = (nal[0] >> 1) & 0x3f`.
+7. Thống kê số lượng từng NAL type.
+8. Nhận thấy NAL type `35` xuất hiện đều theo nhịp video.
+9. Xác định NAL type `35` là Access Unit Delimiter, tức “người gác cửa” trong hint.
+10. Với mỗi AUD, lấy `primary_pic_type = (nal[2] >> 5) & 0x07`.
+11. Chỉ dùng bit nhỏ nhất của `primary_pic_type`: `aud_lsb = primary_pic_type & 1`.
+12. Thu thập kích thước các VCL NAL, tức NAL type từ `0` đến `31`.
+13. Tạo `trend_bit`: bằng `1` nếu VCL hiện tại lớn hơn VCL ngay trước đó, ngược lại bằng `0`.
+14. Khôi phục bit ứng viên bằng `hidden_bit = aud_lsb XOR trend_bit`.
+15. Vì đọc tuần tự chỉ ra nhiễu, brute force cặp `(start, step)` với điều kiện `gcd(step, AUD_COUNT) = 1`.
+16. Ghép bit theo MSB-first; packet đúng bắt đầu bằng `AU`, sau đó là 2 byte độ dài, payload flag và CRC32.
+
+## 10. Kết quả
 
 Chạy solve:
 
@@ -241,11 +262,11 @@ Output:
 AUD_NAL_COUNT=542
 WALK_START=19
 WALK_STEP=73
-HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
+blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 ```
 
-## 10. Flag
+## 11. Flag
 
 ```text
-HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
+blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 ```
