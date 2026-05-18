@@ -1,0 +1,15 @@
+name: CCTV Motion Leak
+category: H265 Steganography
+difficulty: medium
+points: 200
+flag: HEVC{motion_leak_in_cctv}
+files:
+  - public/cctv.hevc
+  - public/cctv_export.log
+description: |
+  Một file CCTV H.265 bị tải ra ngoài trước thời điểm rò rỉ dữ liệu. File không có SEI đáng ngờ.
+  Hãy tìm kênh ẩn và khôi phục flag.
+hints:
+  - Log giúp xác định bối cảnh, không chứa flag.
+  - Không phải metadata.
+  - Hãy nghĩ tới parity của motion-vector sample.

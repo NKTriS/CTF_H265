@@ -1,0 +1,15 @@
+name: HEVC Metadata Slice
+category: H265 Steganography
+difficulty: easy
+points: 100
+flag: HEVC-LAB{metadata_is_not_pixels}
+files:
+  - public/suspicious.hevc
+  - public/clean.hevc
+description: |
+  SOC nhận được một file HEVC nghi vấn. File xem bình thường và không có flag rõ ràng khi dùng strings.
+  Hãy phân tích cấu trúc NAL để tìm thông điệp ẩn.
+hints:
+  - So sánh bản clean và bản suspicious.
+  - HEVC có NAL SEI prefix/suffix.
+  - user_data_unregistered có payload_type bằng 5 và có UUID 16 byte.

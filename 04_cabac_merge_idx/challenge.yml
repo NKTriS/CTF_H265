@@ -1,0 +1,17 @@
+name: CABAC Merge Index
+category: H265 Steganography
+difficulty: hard
+points: 400
+flag: HEVC{cabac_merge_idx_channel}
+files:
+  - public/warehouse-source.mp4
+  - public/merge_trace.csv
+  - public/incident_note.txt
+description: |
+  Video nguồn là H.265 hợp lệ trong MP4. Không có flag trong strings hoặc metadata rõ ràng.
+  SOC cung cấp thêm trace merge mode đã trích xuất từ quá trình phân tích codec.
+  Hãy khôi phục thông điệp ẩn.
+hints:
+  - Tập trung vào các record merge mode usable.
+  - Syntax element cần chú ý là merge_idx.
+  - Parity chẵn/lẻ có thể biểu diễn bit.
