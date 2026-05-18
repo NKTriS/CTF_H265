@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 import re
 import sys
+import zlib
+import struct
+import hashlib
+import random
 from pathlib import Path
 from math import gcd
 
@@ -38,31 +42,47 @@ def bits_to_bytes(bits):
     return bytes(out)
 
 
-def read_aud_bits(data: bytes):
+def read_aud_bits_and_vcl_sizes(data: bytes):
     bits = []
+    vcl_sizes = []
     for nal in find_nals(data):
-        if nal_type(nal) != 35:
-            continue
-        if len(nal) < 3:
-            continue
-        primary_pic_type = (nal[2] >> 5) & 0x07
-        bits.append(primary_pic_type & 1)
+        ntype = nal_type(nal)
+        if ntype == 35 and len(nal) >= 3:
+            primary_pic_type = (nal[2] >> 5) & 0x07
+            bits.append(primary_pic_type & 1)
+        elif 0 <= ntype <= 31:
+            vcl_sizes.append(len(nal))
+    return bits, vcl_sizes
+
+
+def keystream(seed, size):
+    rng = random.Random(seed)
+    return bytes(rng.randrange(0, 256) for _ in range(size))
     return bits
 
 
-def decode_walk(bits, start, step):
+def decode_walk(bits, start, step, seed):
     walked = []
     pos = start
     for _ in range(len(bits)):
         walked.append(bits[pos])
         pos = (pos + step) % len(bits)
     raw = bits_to_bytes(walked)
-    if len(raw) < 2:
+    if len(raw) < 8 or raw[:2] != b"AU":
         return b""
-    size = int.from_bytes(raw[:2], "big")
-    if not 0 < size < 128:
+    size = struct.unpack(">H", raw[2:4])[0]
+    if not 0 < size < 256 or len(raw) < 4 + size + 4:
         return b""
-    return raw[2:2 + size]
+    cipher = raw[4:4 + size]
+    crc_expected = struct.unpack(">I", raw[4 + size:8 + size])[0]
+    plain_zip = bytes(a ^ b for a, b in zip(cipher, keystream(seed, size)))
+    try:
+        plain = zlib.decompress(plain_zip)
+    except zlib.error:
+        return b""
+    if zlib.crc32(plain) != crc_expected:
+        return b""
+    return plain
 
 
 def main():
@@ -71,7 +91,9 @@ def main():
         raise SystemExit(2)
 
     data = Path(sys.argv[1]).read_bytes()
-    bits = read_aud_bits(data)
+    bits, vcl_sizes = read_aud_bits_and_vcl_sizes(data)
+    material = ",".join(map(str, vcl_sizes[:64])).encode()
+    seed = int.from_bytes(hashlib.sha256(material).digest()[:8], "big")
 
     print(f"AUD_NAL_COUNT={len(bits)}")
 
@@ -79,7 +101,7 @@ def main():
         for step in range(1, len(bits)):
             if gcd(step, len(bits)) != 1:
                 continue
-            stream = decode_walk(bits, start, step)
+            stream = decode_walk(bits, start, step, seed)
             match = re.search(rb"HEVC\{[ -~]+?\}", stream)
             if match:
                 print(f"WALK_START={start}")

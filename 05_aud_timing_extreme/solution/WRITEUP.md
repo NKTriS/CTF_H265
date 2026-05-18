@@ -23,7 +23,16 @@ start = 19
 step  = 73
 ```
 
-Hai byte đầu của stream thật là độ dài payload.
+Stream thật cũng không chứa flag ASCII trực tiếp. Cấu trúc gói là:
+
+```text
+magic       = "AU"
+length      = 2 byte big-endian
+ciphertext  = zlib(flag) XOR PRNG(seed)
+crc32       = crc32(flag)
+```
+
+Seed PRNG được lấy từ SHA-256 của kích thước 64 VCL NAL đầu tiên. Vì vậy người giải phải vừa tìm đúng kênh, đúng lịch lấy mẫu, vừa dựng lại khóa từ chính bitstream.
 
 ## Cách giải
 
@@ -39,8 +48,10 @@ bit = primary_pic_type & 1
 
 5. Nếu đọc tuần tự không ra ASCII, brute force các cặp `(start, step)` sao cho `gcd(step, AUD_COUNT) = 1`.
 6. Với mỗi cặp, đi qua danh sách AUD theo công thức `pos = (start + k * step) % AUD_COUNT`.
-7. Hai byte đầu là độ dài, phần tiếp theo là payload.
-8. Tìm chuỗi dạng `HEVC{...}`.
+7. Khi thấy magic `AU`, đọc độ dài ciphertext.
+8. Dựng seed từ SHA-256 của kích thước 64 VCL NAL đầu tiên.
+9. XOR ciphertext với PRNG stream, giải nén zlib.
+10. Kiểm tra CRC32 rồi lấy flag.
 
 ## Lệnh mẫu
 
