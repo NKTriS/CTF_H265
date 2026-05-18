@@ -21,7 +21,7 @@ Các file `.zip` trong `dist/` là gói public có thể upload lên platform.
 | 02 | CCTV Motion Leak | `mv_x` parity | `HEVC{motion_leak_in_cctv}` | Dễ |
 | 03 | Filler NAL Channel | Filler Data NAL length parity | `HEVC{filler_nal_length_channel}` | Dễ |
 | 04 | CABAC Merge Index | `merge_idx` parity trong trace merge mode | `HEVC{cabac_merge_idx_channel}` | Trung bình |
-| 05 | AUD Timing Extreme | Access Unit Delimiter `primary_pic_type` parity | `HEVC{aud_primary_pic_type_order_is_the_channel}` | Cực khó |
+| 05 | AUD Timing Extreme | Access Unit Delimiter `primary_pic_type` parity | `HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}` | Cực khó |
 
 ## Gợi ý triển khai
 

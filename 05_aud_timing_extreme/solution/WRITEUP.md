@@ -31,11 +31,11 @@ Kết quả:
 
 ```text
 AUD_NAL_COUNT=480
-HEVC{aud_primary_pic_type_order_is_the_channel}
+HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 ```
 
 ## Flag
 
 ```text
-HEVC{aud_primary_pic_type_order_is_the_channel}
+HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 ```
