@@ -1,6 +1,6 @@
 name: AUD Timing Extreme
 category: H265 Steganography
-difficulty: extreme
+difficulty: hard
 flag: HEVC{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 files:
   - public/bunny_aud_suspect.hevc
