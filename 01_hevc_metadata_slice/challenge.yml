@@ -5,10 +5,11 @@ flag: HEVC-LAB{metadata_is_not_pixels}
 files:
   - public/suspicious.hevc
   - public/clean.hevc
+  - public/HINT.txt
 description: |
   SOC nhận được một file HEVC nghi vấn. File xem bình thường và không có flag rõ ràng khi dùng strings.
   Hãy phân tích cấu trúc NAL để tìm thông điệp ẩn.
 hints:
-  - So sánh bản clean và bản suspicious.
-  - HEVC có NAL SEI prefix/suffix.
-  - user_data_unregistered có payload_type bằng 5 và có UUID 16 byte.
+  - Có thứ không thuộc khung hình, nhưng vẫn đi cùng luồng hình.
+  - Một người đưa thư đôi khi đứng trước bức tranh.
+  - Khi hai bản gần giống nhau, phần thừa ra thường biết nói.

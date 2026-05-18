@@ -1,0 +1,2 @@
+Đừng nhìn màu của từng pixel trước.
+Hãy nhìn những mẩu thông tin đi kèm video: thứ không làm hình thay đổi nhưng vẫn nằm trong bitstream.

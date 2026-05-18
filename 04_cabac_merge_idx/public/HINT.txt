@@ -1,0 +1,2 @@
+Trace không phải để đọc như log thường.
+Hãy lọc những dòng thật sự được dùng, rồi quan sát lựa chọn nhỏ nằm trong quá trình “mượn” dự đoán.

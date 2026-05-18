@@ -5,10 +5,11 @@ flag: HEVC{motion_leak_in_cctv}
 files:
   - public/cctv.hevc
   - public/cctv_export.log
+  - public/HINT.txt
 description: |
   Một file CCTV H.265 bị tải ra ngoài trước thời điểm rò rỉ dữ liệu. File không có SEI đáng ngờ.
   Hãy tìm kênh ẩn và khôi phục flag.
 hints:
-  - Log giúp xác định bối cảnh, không chứa flag.
-  - Không phải metadata.
-  - Hãy nghĩ tới parity của motion-vector sample.
+  - Camera nhìn thấy chuyển động, người điều tra cũng vậy.
+  - Hãy nghe nhịp chẵn lẻ của những con số biết di chuyển.
+  - Log chỉ nói ai đã mang video đi, không nói video thì thầm gì.

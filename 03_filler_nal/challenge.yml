@@ -6,10 +6,11 @@ files:
   - public/warehouse-clean.hevc
   - public/warehouse-suspect.hevc
   - public/export_audit.log
+  - public/HINT.txt
 description: |
   Có hai file HEVC: một bản sạch và một bản nghi vấn. Video nghi vấn vẫn phát bình thường.
   Hãy tìm phần khác biệt có khả năng mang dữ liệu ẩn.
 hints:
-  - Không phải SEI.
-  - So sánh cấu trúc NAL giữa clean và suspect.
-  - Filler Data NAL không phải lúc nào cũng vô nghĩa.
+  - Khoảng trống trong thùng hàng không phải lúc nào cũng rỗng.
+  - Có thứ được sinh ra để bỏ qua, nhưng kẻ giấu tin lại thích nó.
+  - Đừng chỉ hỏi NAL là gì, hãy hỏi nó dài bao nhiêu.

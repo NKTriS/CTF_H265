@@ -6,11 +6,12 @@ files:
   - public/bunny_aud_suspect.hevc
   - public/bunny_aud_suspect.mp4
   - public/SOURCE.txt
+  - public/HINT.txt
 description: |
   Một đoạn Big Buck Bunny H.265 nhìn rất bình thường. Không có chuỗi flag trong strings,
   không có SEI user-data rõ ràng, không có filler payload, không có trace tặng kèm.
   Hãy phân tích bitstream HEVC và tìm kênh giấu tin nằm ở cấp access unit.
 hints:
-  - Hãy đếm loại NAL trước khi nghĩ tới pixel.
-  - Một số NAL không ảnh hưởng nội dung hình ảnh nhưng vẫn xuất hiện theo thứ tự frame.
-  - Access Unit Delimiter có trường nhỏ tên là primary_pic_type.
+  - Người gác cửa xuất hiện trước mỗi cảnh, nhưng không bao giờ bước vào khung hình.
+  - Trật tự của lời chào đôi khi quan trọng hơn nội dung bức tranh.
+  - Một trường rất nhỏ có thể đủ làm nhịp metronome cho cả thông điệp.
