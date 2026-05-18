@@ -233,6 +233,26 @@ WALK_STEP=73
 blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}
 ```
 
+## Các bước thực hiện
+
+1. Mở thư mục public và xác định file chính cần phân tích là `bunny_aud_suspect.hevc`.
+2. Dùng `ffprobe` kiểm tra `bunny_aud_suspect.mp4` để xác nhận video dùng codec HEVC/H.265.
+3. Dùng `strings` trên file `.hevc` để kiểm tra không có flag plaintext.
+4. Đọc `HINT.txt` và loại hướng soi frame ảnh/pixel.
+5. Đọc file `.hevc` ở dạng byte.
+6. Tìm các start code Annex-B `00 00 01` và `00 00 00 01`.
+7. Dựa vào start code để tách file thành các NAL unit.
+8. Với mỗi NAL, tính `nal_unit_type = (nal[0] >> 1) & 0x3f`.
+9. Thống kê số lượng từng loại NAL và nhận thấy NAL type `35` xuất hiện đều theo nhịp video.
+10. Tra/nhận biết NAL type `35` là Access Unit Delimiter (AUD), tức “người gác cửa” trong hint.
+11. Với mỗi AUD, đọc `primary_pic_type = (nal[2] >> 5) & 0x07`.
+12. Lấy bit ứng viên từ AUD bằng `aud_lsb = primary_pic_type & 1`.
+13. Thu thập kích thước các VCL NAL, tức các NAL type từ `0` đến `31`.
+14. Với mỗi VCL, tạo `trend_bit = 1` nếu kích thước VCL hiện tại lớn hơn VCL trước đó, ngược lại là `0`.
+15. Khôi phục bit thật bằng `hidden_bit = aud_lsb XOR trend_bit`.
+16. Vì đọc tuần tự vẫn là nhiễu, brute force cặp `(start, step)` và chỉ giữ các `step` có `gcd(step, AUD_COUNT) = 1`.
+17. Ghép bit theo MSB-first, kiểm packet bắt đầu bằng `AU`, đọc 2 byte độ dài, payload và CRC32 để lấy flag.
+
 ## Flag
 
 ```text
