@@ -1,0 +1,29 @@
+id: ad_01_h265_nal_vault
+name: H265 NAL Vault AD
+category: Attack/Defense H.265 Steganography
+difficulty: easy
+flag: blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
+type: attack-defense
+files:
+  service:
+    - service/Dockerfile
+    - service/docker-compose.yml
+    - service/app.py
+    - service/stego.py
+    - service/requirements.txt
+  checker:
+    - checker/checker.py
+    - checker/CHECKER_EXPLAIN.md
+  solution:
+    - solution/WRITEUP.md
+    - solution/ATTACK.md
+    - solution/DEFENSE.md
+    - solution/exploit.py
+    - solution/defense.patch
+description: |
+  H265 NAL Vault is a small attack/defense service that stores team secrets
+  inside raw HEVC Annex-B bitstreams. The hidden channel is the low bit of
+  primary_pic_type in AUD NAL units, type 35. The intended attack is to abuse
+  an exposed debug endpoint, download another team's .h265 carrier, and decode
+  the hidden flag. The intended defense is to remove or protect the debug file
+  endpoint while keeping /api/store and /api/read working for the checker.

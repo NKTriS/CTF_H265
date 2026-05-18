@@ -1,0 +1,13 @@
+services:
+  pixel-vault:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATA_DIR=/data
+    volumes:
+      - pixel_vault_data:/data
+    restart: unless-stopped
+
+volumes:
+  pixel_vault_data:
