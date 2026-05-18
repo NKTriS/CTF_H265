@@ -17,8 +17,8 @@ Các file `.zip` trong `dist/` là gói public có thể upload lên platform.
 
 | ID | Tên | Kỹ thuật | Flag | Độ khó CTF |
 |---|---|---|---|---|
-| 01 | HEVC Metadata Slice | SEI user-data + VCL trailing bytes | `HEVC-LAB{metadata_is_not_pixels}` | Dễ |
-| 02 | CCTV Motion Leak | `mv_x` parity | `HEVC{motion_leak_in_cctv}` | Dễ |
+| 01 | HEVC Metadata Slice | SEI user-data + VCL trailing bytes | `HEVC-LAB{metadata_is_not_pixels}` | Trung bình |
+| 02 | CCTV Motion Leak | `mv_x` parity | `HEVC{motion_leak_in_cctv}` | Trung bình |
 | 03 | Filler NAL Channel | Filler Data NAL length parity | `HEVC{filler_nal_length_channel}` | Dễ |
 | 04 | CABAC Merge Index | `merge_idx` parity trong trace merge mode | `HEVC{cabac_merge_idx_channel}` | Trung bình |
 | 05 | AUD Timing | HEVC access-unit control channel | `blockChainPTIT{4ud_pr1m4ry_p1c_type_order_1s_the_ch4nnel}` | Khá khó |

@@ -159,12 +159,6 @@ Output:
 HEVC{motion_leak_in_cctv}
 ```
 
-## 12. Độ khó suy ra
-
-Bài có khoảng 11 bước: kiểm tra file, loại metadata, parse NAL, lọc VCL, lấy carrier, dựng motion-vector sample, lấy parity và ghép bit.
-
-Độ khó suy ra: **Trung bình** nếu người chơi phải tự suy ra motion-vector channel; **dễ-trung bình** nếu đã có hint mạnh về chuyển động.
-
 ## Flag
 
 ```text

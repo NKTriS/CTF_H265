@@ -134,12 +134,6 @@ Output:
 HEVC{filler_nal_length_channel}
 ```
 
-## 11. Độ khó suy ra
-
-Bài có khoảng 10 bước: so sánh clean/suspect, parse NAL, nhận diện Filler NAL, đếm độ dài filler và ghép bit.
-
-Độ khó suy ra: **Trung bình nhẹ** nếu không biết Filler Data NAL; **dễ** nếu người chơi đã quen cấu trúc NAL HEVC.
-
 ## Flag
 
 ```text

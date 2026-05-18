@@ -140,12 +140,6 @@ Output:
 HEVC{cabac_merge_idx_channel}
 ```
 
-## 11. Độ khó suy ra
-
-Bài có khoảng 10 bước: đọc trace, lọc record hợp lệ, lấy parity `merge_idx` và ghép bit. Điểm khó nằm ở việc hiểu ý nghĩa trace CABAC/merge mode.
-
-Độ khó suy ra: **Trung bình**.
-
 ## Flag
 
 ```text

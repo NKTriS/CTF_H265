@@ -170,12 +170,6 @@ Output:
 HEVC-LAB{metadata_is_not_pixels}
 ```
 
-## 12. Độ khó suy ra
-
-Bài có khoảng 11 bước kỹ thuật: parse NAL, nhận diện SEI, chuyển EBSP sang RBSP, parse `user_data_unregistered`, bỏ UUID và brute force XOR 1 byte.
-
-Độ khó suy ra: **Trung bình** nếu tính theo số bước thao tác; **dễ-trung bình** nếu người chơi đã quen SEI trong H.265.
-
 ## Flag
 
 ```text
