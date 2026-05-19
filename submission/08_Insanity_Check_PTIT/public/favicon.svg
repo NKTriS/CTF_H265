@@ -1,0 +1,312 @@
+<svg width="384" height="576" viewBox="0 0 384 576" xmlns="http://www.w3.org/2000/svg" id="root">
+<style>
+@keyframes blink {
+0.000% { fill: #FFFF; }
+0.665% { fill: #FFF6; }
+0.887% { fill: #FFFF; }
+1.109% { fill: #FFF6; }
+1.330% { fill: #FFFF; }
+1.552% { fill: #FFF6; }
+1.774% { fill: #FFFF; }
+1.996% { fill: #FFF6; }
+2.217% { fill: #FFF6; }
+2.882% { fill: #FFFF; }
+3.104% { fill: #FFF6; }
+3.326% { fill: #FFFF; }
+3.991% { fill: #FFF6; }
+4.213% { fill: #FFFF; }
+4.435% { fill: #FFF6; }
+4.656% { fill: #FFFF; }
+4.878% { fill: #FFF6; }
+5.100% { fill: #FFF6; }
+5.765% { fill: #FFFF; }
+6.430% { fill: #FFF6; }
+6.652% { fill: #FFFF; }
+7.317% { fill: #FFF6; }
+7.539% { fill: #FFFF; }
+8.204% { fill: #FFF6; }
+8.426% { fill: #FFF6; }
+9.091% { fill: #FFFF; }
+9.756% { fill: #FFF6; }
+9.978% { fill: #FFFF; }
+10.200% { fill: #FFF6; }
+10.421% { fill: #FFFF; }
+11.086% { fill: #FFF6; }
+11.308% { fill: #FFFF; }
+11.530% { fill: #FFF6; }
+11.752% { fill: #FFF6; }
+12.417% { fill: #FFFF; }
+13.082% { fill: #FFF6; }
+13.304% { fill: #FFFF; }
+13.525% { fill: #FFF6; }
+13.747% { fill: #FFFF; }
+14.412% { fill: #FFF6; }
+14.634% { fill: #FFF6; }
+15.299% { fill: #FFFF; }
+15.965% { fill: #FFF6; }
+16.186% { fill: #FFFF; }
+16.408% { fill: #FFF6; }
+16.630% { fill: #FFFF; }
+17.295% { fill: #FFF6; }
+17.517% { fill: #FFFF; }
+17.738% { fill: #FFF6; }
+17.960% { fill: #FFF6; }
+18.625% { fill: #FFFF; }
+18.847% { fill: #FFF6; }
+19.069% { fill: #FFFF; }
+19.290% { fill: #FFF6; }
+19.512% { fill: #FFFF; }
+19.734% { fill: #FFF6; }
+19.956% { fill: #FFFF; }
+20.177% { fill: #FFF6; }
+20.399% { fill: #FFF6; }
+21.064% { fill: #FFFF; }
+21.286% { fill: #FFF6; }
+21.508% { fill: #FFFF; }
+22.173% { fill: #FFF6; }
+22.395% { fill: #FFF6; }
+23.060% { fill: #FFFF; }
+23.282% { fill: #FFF6; }
+23.503% { fill: #FFFF; }
+23.725% { fill: #FFF6; }
+23.947% { fill: #FFF6; }
+24.612% { fill: #FFFF; }
+25.277% { fill: #FFF6; }
+25.499% { fill: #FFFF; }
+25.721% { fill: #FFF6; }
+25.942% { fill: #FFF6; }
+26.608% { fill: #FFFF; }
+26.829% { fill: #FFF6; }
+27.051% { fill: #FFFF; }
+27.716% { fill: #FFF6; }
+27.938% { fill: #FFFF; }
+28.603% { fill: #FFF6; }
+28.825% { fill: #FFFF; }
+29.047% { fill: #FFF6; }
+29.268% { fill: #FFF6; }
+29.933% { fill: #FFFF; }
+30.599% { fill: #FFF6; }
+30.820% { fill: #FFF6; }
+31.486% { fill: #FFFF; }
+31.707% { fill: #FFF6; }
+31.929% { fill: #FFFF; }
+32.151% { fill: #FFF6; }
+32.373% { fill: #FFF6; }
+33.038% { fill: #FFFF; }
+33.703% { fill: #FFF6; }
+33.925% { fill: #FFF6; }
+34.590% { fill: #FFF6; }
+34.812% { fill: #FFF6; }
+35.477% { fill: #FFFF; }
+35.698% { fill: #FFF6; }
+35.920% { fill: #FFFF; }
+36.585% { fill: #FFF6; }
+36.807% { fill: #FFFF; }
+37.472% { fill: #FFF6; }
+37.694% { fill: #FFFF; }
+38.359% { fill: #FFF6; }
+38.581% { fill: #FFFF; }
+39.246% { fill: #FFF6; }
+39.468% { fill: #FFF6; }
+40.133% { fill: #FFFF; }
+40.798% { fill: #FFF6; }
+41.020% { fill: #FFFF; }
+41.242% { fill: #FFF6; }
+41.463% { fill: #FFF6; }
+42.129% { fill: #FFFF; }
+42.350% { fill: #FFF6; }
+42.572% { fill: #FFFF; }
+42.794% { fill: #FFF6; }
+43.016% { fill: #FFFF; }
+43.237% { fill: #FFF6; }
+43.459% { fill: #FFF6; }
+44.124% { fill: #FFFF; }
+44.346% { fill: #FFF6; }
+44.568% { fill: #FFFF; }
+44.789% { fill: #FFF6; }
+45.011% { fill: #FFFF; }
+45.233% { fill: #FFF6; }
+45.455% { fill: #FFFF; }
+45.676% { fill: #FFF6; }
+45.898% { fill: #FFFF; }
+46.563% { fill: #FFF6; }
+46.785% { fill: #FFF6; }
+47.450% { fill: #FFFF; }
+48.115% { fill: #FFF6; }
+48.337% { fill: #FFFF; }
+48.559% { fill: #FFF6; }
+48.780% { fill: #FFF6; }
+49.446% { fill: #FFFF; }
+49.667% { fill: #FFF6; }
+49.889% { fill: #FFFF; }
+50.554% { fill: #FFF6; }
+50.776% { fill: #FFFF; }
+51.441% { fill: #FFF6; }
+51.663% { fill: #FFFF; }
+52.328% { fill: #FFF6; }
+52.550% { fill: #FFFF; }
+53.215% { fill: #FFF6; }
+53.437% { fill: #FFF6; }
+54.102% { fill: #FFFF; }
+54.767% { fill: #FFF6; }
+54.989% { fill: #FFF6; }
+55.654% { fill: #FFFF; }
+56.319% { fill: #FFF6; }
+56.541% { fill: #FFFF; }
+56.763% { fill: #FFF6; }
+56.984% { fill: #FFFF; }
+57.650% { fill: #FFF6; }
+57.871% { fill: #FFFF; }
+58.537% { fill: #FFF6; }
+58.758% { fill: #FFF6; }
+59.424% { fill: #FFF6; }
+59.645% { fill: #FFF6; }
+60.310% { fill: #FFFF; }
+60.532% { fill: #FFF6; }
+60.754% { fill: #FFFF; }
+60.976% { fill: #FFF6; }
+61.197% { fill: #FFFF; }
+61.419% { fill: #FFF6; }
+61.641% { fill: #FFF6; }
+62.306% { fill: #FFFF; }
+62.528% { fill: #FFF6; }
+62.749% { fill: #FFFF; }
+62.971% { fill: #FFF6; }
+63.193% { fill: #FFFF; }
+63.415% { fill: #FFF6; }
+63.636% { fill: #FFFF; }
+64.302% { fill: #FFF6; }
+64.523% { fill: #FFF6; }
+65.188% { fill: #FFFF; }
+65.854% { fill: #FFF6; }
+66.075% { fill: #FFFF; }
+66.741% { fill: #FFF6; }
+66.962% { fill: #FFFF; }
+67.184% { fill: #FFF6; }
+67.406% { fill: #FFF6; }
+68.071% { fill: #FFF6; }
+68.293% { fill: #FFF6; }
+68.958% { fill: #FFFF; }
+69.623% { fill: #FFF6; }
+69.845% { fill: #FFF6; }
+70.510% { fill: #FFFF; }
+71.175% { fill: #FFF6; }
+71.397% { fill: #FFFF; }
+72.062% { fill: #FFF6; }
+72.284% { fill: #FFFF; }
+72.949% { fill: #FFF6; }
+73.171% { fill: #FFF6; }
+73.836% { fill: #FFF6; }
+74.058% { fill: #FFF6; }
+74.723% { fill: #FFFF; }
+74.945% { fill: #FFF6; }
+75.166% { fill: #FFFF; }
+75.831% { fill: #FFF6; }
+76.053% { fill: #FFFF; }
+76.718% { fill: #FFF6; }
+76.940% { fill: #FFFF; }
+77.605% { fill: #FFF6; }
+77.827% { fill: #FFFF; }
+78.492% { fill: #FFF6; }
+78.714% { fill: #FFF6; }
+79.379% { fill: #FFFF; }
+80.044% { fill: #FFF6; }
+80.266% { fill: #FFF6; }
+80.931% { fill: #FFFF; }
+81.153% { fill: #FFF6; }
+81.375% { fill: #FFFF; }
+81.596% { fill: #FFF6; }
+81.818% { fill: #FFFF; }
+82.040% { fill: #FFF6; }
+82.262% { fill: #FFF6; }
+82.927% { fill: #FFF6; }
+83.149% { fill: #FFF6; }
+83.814% { fill: #FFFF; }
+84.035% { fill: #FFF6; }
+84.257% { fill: #FFFF; }
+84.479% { fill: #FFF6; }
+84.701% { fill: #FFFF; }
+85.366% { fill: #FFF6; }
+85.588% { fill: #FFFF; }
+85.809% { fill: #FFF6; }
+86.031% { fill: #FFF6; }
+86.696% { fill: #FFFF; }
+86.918% { fill: #FFF6; }
+87.140% { fill: #FFFF; }
+87.361% { fill: #FFF6; }
+87.583% { fill: #FFFF; }
+88.248% { fill: #FFF6; }
+88.470% { fill: #FFF6; }
+89.135% { fill: #FFFF; }
+89.357% { fill: #FFF6; }
+89.579% { fill: #FFFF; }
+90.244% { fill: #FFF6; }
+90.466% { fill: #FFFF; }
+90.687% { fill: #FFF6; }
+90.909% { fill: #FFFF; }
+91.131% { fill: #FFF6; }
+91.353% { fill: #FFF6; }
+92.018% { fill: #FFFF; }
+92.239% { fill: #FFF6; }
+92.461% { fill: #FFFF; }
+93.126% { fill: #FFF6; }
+93.348% { fill: #FFFF; }
+93.570% { fill: #FFF6; }
+93.792% { fill: #FFFF; }
+94.013% { fill: #FFF6; }
+94.235% { fill: #FFF6; }
+94.900% { fill: #FFFF; }
+95.122% { fill: #FFF6; }
+95.344% { fill: #FFF6; }
+96.009% { fill: #FFFF; }
+96.231% { fill: #FFF6; }
+96.452% { fill: #FFFF; }
+96.674% { fill: #FFF6; }
+96.896% { fill: #FFFF; }
+97.118% { fill: #FFF6; }
+97.339% { fill: #FFF6; }
+98.004% { fill: #FFFF; }
+98.670% { fill: #FFF6; }
+98.891% { fill: #FFF6; }
+99.557% { fill: #FFF6; }
+99.778% { fill: #FFF6; }
+100% { fill: #FFF6; }
+}
+@keyframes rainbow1 {
+  0% { stop-color: hsl(27.3, 100%, 37.5%); }
+  50% { stop-color: hsl(0, 100%, 37.5%); }
+  100% { stop-color: hsl(27.3, 100%, 37.5%); }
+}
+@keyframes rainbow2 {
+  0% { stop-color: hsl(47, 80.9%, 61%); }
+  50% { stop-color: hsl(30, 80.9%, 61%); }
+  100% { stop-color: hsl(47, 80.9%, 61%); }
+}
+#gradient > stop:first-child {
+  animation: rainbow1 30s infinite linear;
+}
+#gradient > stop:last-child {
+  animation: rainbow2 30s infinite linear;
+}
+.center {
+  animation: blink 1200s infinite;
+  animation-delay: 10s;
+  animation-timing-function: steps(1, end);
+}
+#center:not(.center) {
+  transform: translate(0, -192px);
+}
+</style>
+<defs>
+<linearGradient id="gradient" gradientTransform="rotate(-30 0.5 0.5)">
+  <stop offset="0%" stop-color="#bf5700"/>
+  <stop offset="100%" stop-color="#ecc94b"/>
+</linearGradient>
+</defs>
+<rect width="384" height="576" fill="url(#gradient)" stroke="none" />
+<path id="lock" d="m64 256h256v256h-256zm192 64h-128v128h128zm-192-256h256v160h-64v-96h-128v96h-64z" fill="#fff" stroke="none"/>
+<path id="center" class="center" d="m160 352h64v64h-64z" fill="#fff" stroke="none"/>
+<script>
+document.getElementById("center").classList.remove("center");
+</script>
+</svg>

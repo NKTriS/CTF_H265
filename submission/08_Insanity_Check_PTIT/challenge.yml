@@ -1,0 +1,17 @@
+id: 08_insanity_check_ptit
+name: Insanity Check Reimagined
+category: Steganography
+difficulty: easy
+flag: blockChainPTIT{1ns4n1ty_svg_to_1ts_fullest}
+source: UTCTF 2024 - Insanity Check: Reimagined
+source_url: https://github.com/utisss/UTCTF-24/tree/main/forensics-insanity-check-reimagined
+files:
+  - public/demo_page.html
+  - public/favicon.svg
+  - public/HINT.txt
+description: |
+  Một phiên bản làm lại của bài Insanity Check nổi tiếng. Flag nằm trong CTFd lần này,
+  nhưng như mọi khi, bạn vẫn phải tự làm việc để lấy nó.
+hints:
+  - Không cần brute-force; các công cụ dirbuster sẽ không giúp gì ở đây.
+  - SVG có thể chứa nhiều thứ hơn một hình tĩnh.

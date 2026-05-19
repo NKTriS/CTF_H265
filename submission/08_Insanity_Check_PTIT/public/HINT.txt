@@ -1,0 +1,2 @@
+Flag nằm trong CTFd lần này, nhưng như mọi khi, bạn vẫn phải tự làm việc để lấy nó.
+Không cần brute-force; các công cụ dirbuster sẽ không giúp gì ở đây.

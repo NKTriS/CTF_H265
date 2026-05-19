@@ -1,0 +1,16 @@
+id: 06_pixel_delta_ptit
+name: Pixel Delta
+category: Steganography
+difficulty: medium
+flag: blockChainPTIT{pixel_delta_reveals_all}
+source: ImaginaryCTF 2023 - Forensics/steganographic
+source_url: https://github.com/ImaginaryCTF/ImaginaryCTF-2023-Challenges/tree/main/Forensics/steganographic
+files:
+  - public/chall.png
+  - public/HINT.txt
+description: |
+  Nếu tôi muốn gửi một thông điệp giấu tin qua Internet, chắc chắn tôi sẽ tự viết thuật toán riêng.
+  Đừng vội cắm ảnh vào hàng loạt công cụ stego ngẫu nhiên rồi mong thấy flag. Không có đâu.
+hints:
+  - Nếu tôi muốn gửi một thông điệp giấu tin qua Internet, chắc chắn tôi sẽ tự viết thuật toán riêng.
+  - Đừng vội cắm ảnh vào hàng loạt công cụ stego ngẫu nhiên rồi mong thấy flag. Không có đâu.

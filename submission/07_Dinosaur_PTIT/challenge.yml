@@ -1,0 +1,14 @@
+id: 07_dinosaur_ptit
+name: Dinosaur
+category: Steganography
+difficulty: easy
+flag: blockChainPTIT{stegosaurus_mosaic_qr}
+source: ImaginaryCTF 2025 - Forensics/dinosaur
+source_url: https://github.com/ImaginaryCTF/ImaginaryCTF-2025-Challenges/tree/main/Forensics/dinosaur
+files:
+  - public/STEGosaurus.txt
+  - public/HINT.txt
+description: |
+  Mọi người đều có một loài khủng long yêu thích. Bạn đoán được của tôi là gì không?
+hints:
+  - Mọi người đều có một loài khủng long yêu thích. Bạn đoán được của tôi là gì không?

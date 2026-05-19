@@ -1,0 +1,2 @@
+Nếu tôi muốn gửi một thông điệp giấu tin qua Internet, chắc chắn tôi sẽ tự viết thuật toán riêng.
+Đừng vội cắm ảnh vào hàng loạt công cụ stego ngẫu nhiên rồi mong thấy flag. Không có đâu.
