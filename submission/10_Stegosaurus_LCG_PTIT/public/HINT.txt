@@ -1,0 +1,2 @@
+Tên file lắm lời hơn bạn tưởng.
+LSB cho biết chỗ đọc bit, LCG cho biết thứ tự đọc, DEFAULT1111 cho biết chìa khóa.

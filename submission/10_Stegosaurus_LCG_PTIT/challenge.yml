@@ -1,0 +1,17 @@
+id: 10_stegosaurus_lcg_ptit
+name: Stegosaurus LCG
+category: Steganography
+difficulty: hard
+flag: blockChainPTIT{l5b_lcg_4nd_x0r_4r3_4_fun_ch41n}
+source: BSides 2025 CTF - Stegosaurus LSB Steganography Challenge
+source_url: https://dmoges.com/posts/bsides-ctf-stegosaurus-steganography/
+files:
+  - public/LSBSTEGO_CONFIG_LCG[1664525,1013904223,4294967296]_DEFAULT1111.png
+  - public/HINT.txt
+description: |
+  Một ảnh PNG bình thường, một tên file quá dài, và một cấu hình có vẻ được để lộ
+  hơi vụng về. Nếu đọc LSB theo thứ tự tuyến tính không ra gì, hãy để bộ sinh số
+  giả ngẫu nhiên dẫn đường.
+hints:
+  - Tên file lắm lời hơn bạn tưởng.
+  - LSB cho biết chỗ đọc bit, LCG cho biết thứ tự đọc, DEFAULT1111 cho biết chìa khóa.

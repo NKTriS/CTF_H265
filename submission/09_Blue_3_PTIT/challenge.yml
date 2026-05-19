@@ -1,0 +1,16 @@
+id: 09_blue_3_ptit
+name: Blue 3?
+category: Steganography
+difficulty: hard
+flag: blockChainPTIT{m0r3_blU3_st3g4n0gr4phy_d4_b4_d33}
+source: BYU old CTF challenges - Blue 3?
+source_url: https://github.com/BYU-CSA/old-ctf-challenges/tree/master/forensics-steganography/blue-3
+files:
+  - public/blue.png
+  - public/HINT.txt
+description: |
+  Lại là màu xanh. Nhưng nếu một bức ảnh gần như toàn một màu được chọn làm đề bài,
+  có lẽ điều đáng nhìn không nằm ở hình dạng mà nằm ở những khác biệt rất nhỏ.
+hints:
+  - Không phải màu xanh nào cũng giống nhau.
+  - Nếu nhìn thấy một đường chéo hơi lạ, hãy thử đếm thay vì đoán.
