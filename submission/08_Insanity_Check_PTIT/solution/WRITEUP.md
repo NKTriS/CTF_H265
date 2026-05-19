@@ -1,14 +1,38 @@
 # Insanity Check Reimagined - Writeup
 
-## 1. Tìm điểm đáng nghi
+## 1. Khảo sát ban đầu
 
-Bài cho `demo_page.html` và `favicon.svg`. File HTML gần như rỗng, chỉ load favicon:
+Bài cho 3 file:
+
+```text
+demo_page.html
+favicon.svg
+HINT.txt
+```
+
+Mình mở `demo_page.html` trước. Trang gần như trống, chỉ có một dòng load favicon:
 
 ```html
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 ```
 
-Mở `favicon.svg` thì thấy đây là một SVG có CSS animation. Hình nhìn bình thường, nhưng object ở giữa ổ khóa có animation `blink`:
+Hint cũng nói không cần brute-force hay quét thư mục, nên mình tập trung vào file `favicon.svg`.
+
+## 2. Vì sao SVG đáng nghi
+
+SVG là XML, không chỉ chứa nét vẽ mà còn có thể chứa CSS animation. Khi mở `favicon.svg`, mình thấy có một hình ổ khóa và một block CSS khá dài.
+
+Phần đáng chú ý là animation tên `blink`:
+
+```css
+@keyframes blink {
+  0.000% { fill: #FFFF; }
+  0.288% { fill: #FFF6; }
+  ...
+}
+```
+
+Nó được gắn vào hình vuông ở giữa ổ khóa:
 
 ```css
 .center {
@@ -18,26 +42,17 @@ Mở `favicon.svg` thì thấy đây là một SVG có CSS animation. Hình nhì
 }
 ```
 
-Trong `@keyframes blink`, SVG đổi `fill` giữa hai giá trị:
+Hai trạng thái `#FFFF` và `#FFF6` giống như bật/tắt. Các mốc thời gian lại không đều nhau, nên mình nghi phần animation này đang giấu dữ liệu bằng độ dài tín hiệu.
+
+## 3. Trích tín hiệu bật/tắt
+
+Mình lấy riêng các mốc trong `@keyframes blink`, rồi parse thành cặp:
 
 ```text
-#FFFF
-#FFF6
+phần trăm thời gian, trạng thái fill
 ```
 
-Các mốc phần trăm không đều nhau, nên mình nghi đây không phải hiệu ứng ngẫu nhiên mà là tín hiệu bật/tắt.
-
-## 2. Extract dữ liệu animation
-
-Làm giống hướng giải public của bài gốc: trích các dòng có `fill:` trong SVG, đưa về dạng `timestamp,color`.
-
-```bash
-grep "fill:" favicon.svg \
-  | sed -e 's/ {/,/g' -e 's/ fill: #//g' -e 's/; }//g' \
-  | tr -d % > favicon_data.txt
-```
-
-Một phần output:
+Ví dụ:
 
 ```text
 0.000,FFFF
@@ -47,44 +62,40 @@ Một phần output:
 1.153,FFFF
 ```
 
-Mình tính delta giữa các timestamp liên tiếp. Khi in delta ra thì thấy có pattern ngắn/dài rất rõ, giống Morse.
+Sau đó tính khoảng cách giữa hai mốc liên tiếp. Nếu trạng thái hiện tại là `#FFFF` thì đó là thời gian “bật”; nếu là `#FFF6` thì đó là thời gian “tắt”.
 
-## 3. Nhận ra Morse
-
-Ý tưởng map:
+Khi nhìn các khoảng thời gian, mình thấy chúng gom về các bội số của một đơn vị nhỏ. Đây là dấu hiệu rất giống Morse:
 
 ```text
-delta ngắn  -> .
-delta dài   -> -
-delta vừa   -> hết một ký tự
-delta rất dài -> hết một từ
+bật ngắn  -> .
+bật dài   -> -
+tắt vừa   -> hết chữ
+tắt dài   -> hết từ
 ```
 
-Với file gốc của bài này, script solve đo unit nhỏ nhất rồi phân loại:
+## 4. Decode Morse
 
-```python
-if fill == "#FFFF":
-    symbols.append("-" if units >= 3 else ".")
-else:
-    if units >= 7:
-        symbols.append(" / ")
-    elif units >= 3:
-        symbols.append(" ")
-```
-
-Sau khi ghép lại, Morse decode thành:
+Sau khi map các đoạn bật/tắt sang Morse, thông điệp đọc được là:
 
 ```text
 blockchainptit 1ns4n1ty svg to 1ts fullest
 ```
 
-Đổi về flag format:
+Ghép lại theo format flag:
 
 ```text
 blockChainPTIT{1ns4n1ty_svg_to_1ts_fullest}
 ```
 
-## 4. Chạy solver
+## 5. Xác nhận bằng solver
+
+Script giải nằm ở:
+
+```text
+solution/solve.py
+```
+
+Chạy:
 
 ```bash
 python solution/solve.py public/favicon.svg
@@ -104,12 +115,4 @@ Flag:
 
 ```text
 blockChainPTIT{1ns4n1ty_svg_to_1ts_fullest}
-```
-
-## Tham khảo
-
-Writeup public của bài gốc cũng giải theo hướng này: phân tích favicon SVG, extract các mốc `fill`, tính delta và decode Morse.
-
-```text
-https://meashiri.github.io/ctf-writeups/posts/202403-utctf/
 ```
