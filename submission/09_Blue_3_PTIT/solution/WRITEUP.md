@@ -1,16 +1,5 @@
 # Blue 3? - Writeup chi tiết
 
-## 0. Nguồn tham khảo và hướng tiếp cận
-
-Bài này được làm lại từ challenge **Blue 3?** của BYU old CTF challenges. Writeup gốc nói ý tưởng chính là chia flag theo từng ký tự, mỗi ký tự tương ứng một vùng nhỏ trên đường chéo, rồi tăng nhẹ một kênh màu của các pixel trong vùng đó. Người chơi bản hard chỉ nhận `blue.png`, không nhận source tạo ảnh.
-
-Nguồn mình dùng để đối chiếu:
-
-- BYU old CTF challenges - Blue 3?: <https://github.com/BYU-CSA/old-ctf-challenges/tree/master/forensics-steganography/blue-3>
-- Khái niệm digital steganography: <https://en.wikipedia.org/wiki/Steganography#Digital_steganography>
-
-Mình viết lại lời giải dưới góc nhìn black-box: giả sử chỉ có file public và chưa biết script tạo đề.
-
 ## 1. Khảo sát file public
 
 Bài cho hai file:
@@ -198,13 +187,3 @@ Flag:
 ```text
 blockChainPTIT{m0r3_blU3_st3g4n0gr4phy_d4_b4_d33}
 ```
-
-## 8. Tóm tắt kỹ thuật
-
-Bài này không giấu bit theo LSB thông thường. Nó giấu từng ký tự bằng số lượng thay đổi pixel:
-
-```text
-mã ASCII của ký tự = tổng sai khác RGB trong block tương ứng
-```
-
-Vì các block được đặt theo đường chéo, hint "đường chéo" dẫn đến cách chia ảnh. Vì ảnh gần như một màu, màu xuất hiện nhiều nhất chính là nền để trừ sai khác. Khi ghép hai quan sát này lại, flag được khôi phục bằng phép đếm, đúng như hint gợi ý.

@@ -1,18 +1,5 @@
 # Stegosaurus LCG - Writeup chi tiết
 
-## 0. Nguồn tham khảo và hướng tiếp cận
-
-Bài này được dựng lại theo ý tưởng **Stegosaurus - LSB Steganography Challenge** của BSides 2025. Bài phân tích của tác giả mô tả challenge thuộc nhóm steganography/cryptography, dùng LSB để giấu dữ liệu và dùng LCG để quyết định thứ tự pixel. Tên file gốc chứa luôn tham số LCG và chuỗi cấu hình `DEFAULT1111`.
-
-Nguồn mình dùng để đối chiếu:
-
-- BSides 2025 CTF - Stegosaurus LSB Steganography Challenge: <https://dmoges.com/posts/bsides-ctf-stegosaurus-steganography/>
-- Bản mirror trên Amateur Engineering: <https://amateurengineering.com/bsides-2025-ctf-stegosaurus-lsb-steganography-challenge>
-- Linear Congruential Generator: <https://en.wikipedia.org/wiki/Linear_congruential_generator>
-- Digital steganography: <https://en.wikipedia.org/wiki/Steganography#Digital_steganography>
-
-Writeup dưới đây đi theo hướng black-box: bắt đầu từ ảnh public, đọc tên file, thử giả thuyết, rồi viết solver.
-
 ## 1. Khảo sát file public
 
 Bài cho hai file:
@@ -218,20 +205,3 @@ Flag:
 ```text
 blockChainPTIT{l5b_lcg_4nd_x0r_4r3_4_fun_ch41n}
 ```
-
-## 8. Tóm tắt kỹ thuật
-
-Bài này khó hơn LSB thường vì có hai lớp:
-
-```text
-Lớp 1: Steganography
-  - Dữ liệu nằm trong LSB của các kênh RGB.
-  - Pixel được chọn bằng LCG, không theo thứ tự tuyến tính.
-
-Lớp 2: Cryptography
-  - Payload sau header là ciphertext.
-  - DEFAULT1111 được dùng để sinh keystream.
-  - XOR ngược lại để lấy flag.
-```
-
-Điểm mấu chốt là không bỏ qua tên file. Nếu chỉ dùng tool LSB mặc định, dữ liệu trông như rác vì thứ tự pixel sai. Khi đọc đúng LCG, header `BCPT` xuất hiện và phần còn lại trở thành một bài XOR ngắn.
