@@ -1,7 +1,7 @@
 id: ad_01_h265_nal_vault
 name: H265 NAL Vault AD
 category: Attack/Defense H.265 Steganography
-difficulty: easy
+difficulty: hard
 flag: blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 type: attack-defense
 files:
@@ -21,8 +21,9 @@ files:
     - solution/exploit.py
     - solution/defense.patch
 description: |
-  H265 NAL Vault là một service attack/defense lưu bí mật của đội chơi trong
-  raw HEVC Annex-B bitstream. Kênh ẩn nằm ở bit thấp nhất của primary_pic_type
-  trong AUD NAL type 35. Hướng attack là khai thác debug endpoint bị lộ, tải
-  carrier .h265 của đội khác và giải mã flag. Hướng defense là xóa hoặc bảo vệ
-  debug endpoint, đồng thời giữ /api/store và /api/read hoạt động cho checker.
+  H265 NAL Vault là một web service attack/defense có dashboard để store/read
+  secret và lưu bí mật của đội chơi trong raw HEVC Annex-B bitstream. Kênh ẩn
+  nằm ở bit thấp nhất của primary_pic_type trong AUD NAL type 35. Hướng attack
+  là khai thác public preview metadata-only: preview đã strip VCL slice nhưng
+  vẫn giữ AUD NAL chứa kênh ẩn. Hướng defense là strip AUD khỏi preview hoặc tạo
+  preview sạch, đồng thời giữ dashboard, /api/store và /api/read hoạt động.

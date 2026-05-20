@@ -1,30 +1,14 @@
 diff --git a/service/app.py b/service/app.py
 --- a/service/app.py
 +++ b/service/app.py
-@@ -4,7 +4,7 @@ import os
- import re
- from pathlib import Path
- 
--from flask import Flask, jsonify, request, send_from_directory
-+from flask import Flask, jsonify, request
- 
- from stego import StegoError, embed_secret, extract_secret
- 
-@@ -100,15 +100,5 @@ def read_secret():
- 
-     return jsonify(ok=True, secret=secret)
- 
--
--@app.get("/api/debug/list")
--def debug_list():
--    # Vulnerability: this production route leaks every stored carrier filename.
--    files = sorted(path.name for path in VAULT_DIR.glob("*.h265"))
--    return jsonify(ok=True, files=files)
--
--
--@app.get("/api/debug/file/<path:filename>")
--def debug_file(filename: str):
--    # Vulnerability: unauthenticated users can download raw stego carriers.
--    return send_from_directory(VAULT_DIR, filename, mimetype="video/H265")
-+# Defense: debug routes must not be exposed in production.
-+# The checker only needs /health, /api/store, and /api/read.
+@@ -367,9 +367,7 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
+     preview = bytearray()
+     for nal in find_nals(bitstream):
+         ntype = nal_type(nal)
+-        if 0 <= ntype <= 31:
++        if 0 <= ntype <= 31 or ntype == 35:
+             continue
+-        # Vulnerability: AUD NALs are considered harmless timing metadata, but
+-        # primary_pic_type still carries the hidden channel.
+         preview += b"\x00\x00\x00\x01" + nal
+     return bytes(preview)
