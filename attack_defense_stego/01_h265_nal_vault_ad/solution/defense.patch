@@ -1,14 +1,14 @@
 diff --git a/service/app.py b/service/app.py
 --- a/service/app.py
 +++ b/service/app.py
-@@ -367,9 +367,7 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
+@@ -363,8 +363,6 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
      preview = bytearray()
      for nal in find_nals(bitstream):
          ntype = nal_type(nal)
 -        if 0 <= ntype <= 31:
 +        if 0 <= ntype <= 31 or ntype == 35:
              continue
--        # Vulnerability: AUD NALs are considered harmless timing metadata, but
--        # primary_pic_type still carries the hidden channel.
+-        # Vulnerability: AUD NALs are treated as harmless timing metadata, but
+-        # primary_pic_type still carries the custody marker channel.
          preview += b"\x00\x00\x00\x01" + nal
      return bytes(preview)

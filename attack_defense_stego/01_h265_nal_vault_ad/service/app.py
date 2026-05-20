@@ -11,21 +11,21 @@ from stego import StegoError, embed_secret, extract_secret, find_nals, nal_type
 
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
-VAULT_DIR = DATA_DIR / "vault"
+EVIDENCE_DIR = DATA_DIR / "evidence"
 META_FILE = DATA_DIR / "metadata.json"
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
 
 app = Flask(__name__)
-VAULT_DIR.mkdir(parents=True, exist_ok=True)
+EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 INDEX_HTML = r"""
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>H265 NAL Vault</title>
+  <title>H265 Evidence Portal</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -102,7 +102,7 @@ INDEX_HTML = r"""
       font-weight: 700;
       margin: 14px 0 6px;
     }
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -117,11 +117,11 @@ INDEX_HTML = r"""
       resize: vertical;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
-    input:focus, textarea:focus {
+    input:focus, textarea:focus, select:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
     }
-    button, .button {
+    button {
       border: 0;
       border-radius: 6px;
       background: var(--accent);
@@ -130,13 +130,9 @@ INDEX_HTML = r"""
       margin-top: 16px;
       font-weight: 800;
       cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
       min-height: 40px;
-      align-items: center;
-      justify-content: center;
     }
-    button:hover, .button:hover { background: var(--accent-dark); }
+    button:hover { background: var(--accent-dark); }
     pre {
       margin: 16px 0 0;
       min-height: 84px;
@@ -180,8 +176,8 @@ INDEX_HTML = r"""
   <header>
     <div class="wrap topbar">
       <div>
-        <h1>H265 NAL Vault</h1>
-        <div class="muted">Lưu bí mật vào carrier HEVC Annex-B bằng AUD NAL.</div>
+        <h1>H265 Evidence Portal</h1>
+        <div class="muted">Redacted CCTV evidence previews with HEVC custody markers.</div>
       </div>
       <div class="status"><span class="dot"></span> Service online</div>
     </div>
@@ -189,58 +185,62 @@ INDEX_HTML = r"""
   <main class="wrap">
     <div class="grid">
       <section>
-        <h2>Store Secret</h2>
-        <p class="muted">Tạo carrier <code>.h265</code> mới. Token dùng để đọc secret hợp lệ.</p>
+        <h2>Import CCTV Evidence</h2>
+        <p class="muted">Import a camera stream into evidence storage. The portal attaches an internal custody marker automatically.</p>
         <form id="storeForm">
           <div class="row">
             <div>
-              <label for="storeId">Vault ID</label>
-              <input id="storeId" autocomplete="off" placeholder="team_note_01" required>
+              <label for="storeId">Case ID</label>
+              <input id="storeId" autocomplete="off" placeholder="case_2026_001" required>
             </div>
             <div>
-              <label for="storeToken">Token</label>
-              <input id="storeToken" autocomplete="off" placeholder="ít nhất 8 ký tự" required>
+              <label for="storeToken">Operator Token</label>
+              <input id="storeToken" autocomplete="off" placeholder="at least 8 characters" required>
             </div>
           </div>
-          <label for="storeSecret">Secret</label>
-          <textarea id="storeSecret" placeholder="blockChainPTIT{...}" required></textarea>
-          <button type="submit">Store carrier</button>
+          <label for="storeSource">CCTV Source</label>
+          <select id="storeSource">
+            <option value="lobby_cam_01">Lobby camera 01</option>
+            <option value="parking_gate_02">Parking gate 02</option>
+            <option value="evidence_upload">Uploaded evidence stream</option>
+          </select>
+          <button type="submit">Import evidence</button>
         </form>
-        <pre id="storeOut">Chưa có request.</pre>
+        <pre id="storeOut">No request yet.</pre>
       </section>
 
       <section>
-        <h2>Read Secret</h2>
-        <p class="muted">Luồng hợp lệ cần đúng <code>id</code> và <code>token</code>.</p>
+        <h2>Verify Custody Marker</h2>
+        <p class="muted">The authorized flow requires the correct <code>case id</code> and <code>operator token</code>.</p>
         <form id="readForm">
           <div class="row">
             <div>
-              <label for="readId">Vault ID</label>
+              <label for="readId">Case ID</label>
               <input id="readId" autocomplete="off" required>
             </div>
             <div>
-              <label for="readToken">Token</label>
+              <label for="readToken">Operator Token</label>
               <input id="readToken" autocomplete="off" required>
             </div>
           </div>
-          <button type="submit">Read secret</button>
+          <button type="submit">Verify marker</button>
         </form>
-        <pre id="readOut">Chưa có request.</pre>
+        <pre id="readOut">No request yet.</pre>
       </section>
     </div>
 
     <section class="wide">
-      <h2>Public Preview</h2>
-      <p class="muted">Preview công khai được quảng bá là metadata-only: backend bỏ các VCL slice chứa ảnh và chỉ giữ cấu trúc HEVC để chia sẻ nhanh.</p>
+      <h2>Redacted Public Preview</h2>
+      <p class="muted">Public previews are advertised as metadata-only evidence exports: the backend removes VCL image slices and keeps HEVC structure for quick third-party review.</p>
       <div class="routes">
         <div class="route"><strong>Health</strong><code>GET /health</code></div>
         <div class="route"><strong>Store</strong><code>POST /api/store</code></div>
         <div class="route"><strong>Read</strong><code>POST /api/read</code></div>
-        <div class="route"><strong>Recent</strong><code>GET /api/vaults</code></div>
-        <div class="route"><strong>Share</strong><code>GET /share/&lt;id&gt;</code></div>
-        <div class="route"><strong>Preview</strong><code>GET /api/share/&lt;id&gt;/preview.h265</code></div>
+        <div class="route"><strong>Recent</strong><code>GET /api/cases</code></div>
+        <div class="route"><strong>Case</strong><code>GET /case/&lt;id&gt;</code></div>
+        <div class="route"><strong>Preview</strong><code>GET /api/cases/&lt;id&gt;/redacted-preview.h265</code></div>
       </div>
-      <p class="muted" style="margin-top:14px">Backend tin rằng preview không chứa secret vì đã strip dữ liệu ảnh VCL.</p>
+      <p class="muted" style="margin-top:14px">The backend assumes the preview is safe because visible image slices have been stripped.</p>
     </section>
   </main>
   <script>
@@ -261,7 +261,7 @@ INDEX_HTML = r"""
       const body = {
         id: document.getElementById("storeId").value,
         token: document.getElementById("storeToken").value,
-        secret: document.getElementById("storeSecret").value,
+        source: document.getElementById("storeSource").value,
       };
       const result = await postJson("/api/store", body);
       document.getElementById("storeOut").textContent = json(result);
@@ -286,13 +286,13 @@ INDEX_HTML = r"""
 """
 
 
-SHARE_HTML = r"""
+CASE_HTML = r"""
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Shared carrier {{ item_id }}</title>
+  <title>Evidence case {{ item_id }}</title>
   <style>
     body {
       margin: 0;
@@ -330,10 +330,10 @@ SHARE_HTML = r"""
 </head>
 <body>
   <main>
-    <h1>Shared carrier: {{ item_id }}</h1>
-    <p>Bản preview công khai đã bỏ các VCL slice chứa dữ liệu ảnh hiển thị. File này chỉ dùng để kiểm tra cấu trúc container HEVC.</p>
-    <p>Preview endpoint: <code>/api/share/{{ item_id }}/preview.h265</code></p>
-    <a href="/api/share/{{ item_id }}/preview.h265">Download metadata preview</a>
+    <h1>Evidence case: {{ item_id }}</h1>
+    <p>This public redacted preview has removed VCL slices containing visible CCTV imagery. It is intended for structure review without exposing the raw evidence stream.</p>
+    <p>Preview endpoint: <code>/api/cases/{{ item_id }}/redacted-preview.h265</code></p>
+    <a href="/api/cases/{{ item_id }}/redacted-preview.h265">Download redacted preview</a>
   </main>
 </body>
 </html>
@@ -363,14 +363,19 @@ def _valid_id(value: str) -> bool:
     return isinstance(value, str) and bool(ID_RE.fullmatch(value))
 
 
+def _generated_marker(item_id: str, token: str, source: str) -> str:
+    seed = f"{item_id}:{token}:{source}".encode("utf-8")
+    return "CUSTODY-" + hashlib.sha256(seed).hexdigest()[:24]
+
+
 def _preview_bitstream(bitstream: bytes) -> bytes:
     preview = bytearray()
     for nal in find_nals(bitstream):
         ntype = nal_type(nal)
         if 0 <= ntype <= 31:
             continue
-        # Vulnerability: AUD NALs are considered harmless timing metadata, but
-        # primary_pic_type still carries the hidden channel.
+        # Vulnerability: AUD NALs are treated as harmless timing metadata, but
+        # primary_pic_type still carries the custody marker channel.
         preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
 
@@ -390,12 +395,17 @@ def store_secret():
     body = request.get_json(silent=True) or {}
     item_id = body.get("id", "")
     token = body.get("token", "")
-    secret = body.get("secret", "")
+    source = body.get("source", "lobby_cam_01")
+    secret = body.get("secret")
 
     if not _valid_id(item_id):
         return jsonify(ok=False, error="bad id"), 400
     if not isinstance(token, str) or len(token) < 8:
         return jsonify(ok=False, error="bad token"), 400
+    if not isinstance(source, str) or len(source) > 64:
+        return jsonify(ok=False, error="bad source"), 400
+    if secret is None:
+        secret = _generated_marker(item_id, token, source)
     if not isinstance(secret, str) or len(secret.encode("utf-8")) > 2048:
         return jsonify(ok=False, error="bad secret"), 400
 
@@ -404,16 +414,21 @@ def store_secret():
     except StegoError as exc:
         return jsonify(ok=False, error=str(exc)), 400
 
-    (VAULT_DIR / f"{item_id}.h265").write_bytes(bitstream)
+    (EVIDENCE_DIR / f"{item_id}.h265").write_bytes(bitstream)
     meta = _load_meta()
-    meta[item_id] = {"token_hash": _hash_token(token), "created_at": int(time.time())}
+    meta[item_id] = {
+        "token_hash": _hash_token(token),
+        "created_at": int(time.time()),
+        "source": source,
+    }
     _save_meta(meta)
     return jsonify(
         ok=True,
         id=item_id,
+        source=source,
         filename=f"{item_id}.h265",
-        share_url=f"/share/{item_id}",
-        preview_url=f"/api/share/{item_id}/preview.h265",
+        case_url=f"/case/{item_id}",
+        preview_url=f"/api/cases/{item_id}/redacted-preview.h265",
     )
 
 
@@ -431,7 +446,7 @@ def read_secret():
         return jsonify(ok=False, error="forbidden"), 403
 
     try:
-        secret = extract_secret((VAULT_DIR / f"{item_id}.h265").read_bytes())
+        secret = extract_secret((EVIDENCE_DIR / f"{item_id}.h265").read_bytes())
     except (OSError, StegoError) as exc:
         return jsonify(ok=False, error=str(exc)), 500
 
@@ -451,7 +466,7 @@ def download_carrier():
     if item_id not in meta or meta[item_id].get("token_hash") != _hash_token(token):
         return jsonify(ok=False, error="forbidden"), 403
 
-    path = VAULT_DIR / f"{item_id}.h265"
+    path = EVIDENCE_DIR / f"{item_id}.h265"
     try:
         data = path.read_bytes()
     except OSError:
@@ -464,14 +479,15 @@ def download_carrier():
     )
 
 
-@app.get("/api/vaults")
-def public_vaults():
+@app.get("/api/cases")
+def public_cases():
     meta = _load_meta()
     items = [
         {
             "id": item_id,
-            "share_url": f"/share/{item_id}",
-            "preview_url": f"/api/share/{item_id}/preview.h265",
+            "source": data.get("source", "unknown"),
+            "case_url": f"/case/{item_id}",
+            "preview_url": f"/api/cases/{item_id}/redacted-preview.h265",
             "created_at": data.get("created_at", 0),
         }
         for item_id, data in sorted(meta.items())
@@ -479,24 +495,24 @@ def public_vaults():
     return jsonify(ok=True, items=items)
 
 
-@app.get("/share/<item_id>")
-def share_page(item_id: str):
+@app.get("/case/<item_id>")
+def case_page(item_id: str):
     if not _valid_id(item_id):
         return jsonify(ok=False, error="bad id"), 400
     if item_id not in _load_meta():
         return jsonify(ok=False, error="not found"), 404
-    return render_template_string(SHARE_HTML, item_id=item_id)
+    return render_template_string(CASE_HTML, item_id=item_id)
 
 
-@app.get("/api/share/<item_id>/preview.h265")
-def share_preview(item_id: str):
+@app.get("/api/cases/<item_id>/redacted-preview.h265")
+def redacted_preview(item_id: str):
     if not _valid_id(item_id):
         return jsonify(ok=False, error="bad id"), 400
     if item_id not in _load_meta():
         return jsonify(ok=False, error="not found"), 404
 
     try:
-        bitstream = (VAULT_DIR / f"{item_id}.h265").read_bytes()
+        bitstream = (EVIDENCE_DIR / f"{item_id}.h265").read_bytes()
     except OSError:
         return jsonify(ok=False, error="missing carrier"), 404
 
@@ -504,5 +520,5 @@ def share_preview(item_id: str):
     return Response(
         preview,
         mimetype="video/H265",
-        headers={"Content-Disposition": f'attachment; filename="{item_id}_preview.h265"'},
+        headers={"Content-Disposition": f'attachment; filename="{item_id}_redacted_preview.h265"'},
     )

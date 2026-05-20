@@ -1,16 +1,16 @@
 services:
-  h265-nal-vault:
+  h265-evidence-portal:
     build: .
     ports:
       - "8000:8000"
     environment:
       - DATA_DIR=/data
     volumes:
-      - h265_nal_vault_data:/data
+      - h265_evidence_portal_data:/data
     cpus: 1
     mem_limit: 512m
     pids_limit: 256
     restart: unless-stopped
 
 volumes:
-  h265_nal_vault_data:
+  h265_evidence_portal_data:

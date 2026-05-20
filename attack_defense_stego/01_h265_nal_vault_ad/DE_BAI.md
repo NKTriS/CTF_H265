@@ -1,29 +1,33 @@
-# Đề bài Attack/Defense CTF: H265 NAL Vault AD
+# Đề bài Attack/Defense CTF: H265 Evidence Portal AD
 
 ## Thông tin chung
 
-- Tên bài: H265 NAL Vault AD
-- Chủ đề: H.265/HEVC Annex-B, AUD NAL steganography, public preview leak
+- Tên bài: H265 Evidence Portal AD
+- Chủ đề: H.265/HEVC Annex-B, CCTV redaction, AUD NAL steganography
 - Hình thức: Attack/Defense
 - Độ khó đề xuất: Trung bình - khó
 - Flag format: `blockChainPTIT{}`
 
 ## Mô tả
 
-H265 NAL Vault là một web service lưu bí mật của đội chơi trong raw HEVC
-Annex-B bitstream. Người dùng có dashboard tại `/` để store/read secret. Khi
-checker đặt flag, service nhúng flag vào chuỗi AUD NAL type 35. Mỗi AUD mang
-1 bit thông qua bit thấp nhất của trường `primary_pic_type`.
+H265 Evidence Portal là một web service mô phỏng cổng quản lý bằng chứng CCTV.
+Điều tra viên có dashboard tại `/` để import CCTV evidence từ một camera/source,
+lưu raw H.265 evidence carrier và kiểm tra lại custody marker bằng operator
+token. Marker là dữ liệu nội bộ do hệ thống gắn vào evidence để phục vụ
+chain-of-custody; người dùng bình thường không cần tự nhập marker trên giao diện.
 
-Luồng đọc hợp lệ yêu cầu đúng `id` và `token`. Service cũng có tính năng public
-share/preview để người khác xem cấu trúc carrier mà không cần token. Backend tin
-rằng preview an toàn vì đã strip các VCL slice chứa dữ liệu ảnh hiển thị. Tuy
-nhiên preview vẫn giữ các AUD NAL, trong khi chính AUD đang mang kênh ẩn.
+Để chia sẻ nhanh với bên thứ ba, portal tạo public redacted preview. Backend tin
+rằng preview an toàn vì đã strip các VCL slice chứa hình ảnh CCTV. Tuy nhiên
+service vẫn giữ các AUD NAL type 35 để bảo toàn nhịp/timing metadata, trong khi
+custody marker lại được nhúng vào bit thấp nhất của `primary_pic_type` trong AUD.
+
+Trong môi trường CTF, checker đóng vai hệ thống nội bộ và đặt flag vào trường
+custody marker khi gọi API import case.
 
 Nhiệm vụ của đội chơi:
 
-- Attack: tìm carrier public preview của đội khác, tải preview `.h265`, parse
-  AUD NAL và khôi phục flag.
+- Attack: tìm case public, tải redacted preview `.h265`, parse AUD NAL và khôi
+  phục custody marker/flag.
 - Defense: sửa preview để không còn rò kênh AUD, nhưng vẫn giữ dashboard,
   `/api/store`, `/api/read` và checker hoạt động bình thường.
 
@@ -56,14 +60,14 @@ GET  /health
 POST /api/store
 POST /api/read
 POST /api/carrier
-GET  /api/vaults
-GET  /share/<id>
-GET  /api/share/<id>/preview.h265
+GET  /api/cases
+GET  /case/<id>
+GET  /api/cases/<id>/redacted-preview.h265
 ```
 
-Trong đó `/api/carrier` là route tải carrier hợp lệ nhưng yêu cầu đúng `id` và
-`token`. Điểm yếu nằm ở `/api/share/<id>/preview.h265`: preview công khai không
-có VCL slice nhưng vẫn giữ AUD NAL chứa kênh ẩn.
+Trong đó `/api/carrier` là route tải raw carrier hợp lệ nhưng yêu cầu đúng `id`
+và `token`. Điểm yếu nằm ở `/api/cases/<id>/redacted-preview.h265`: preview công
+khai không có VCL slice nhưng vẫn giữ AUD NAL chứa custody marker.
 
 ## Cơ chế giấu tin
 

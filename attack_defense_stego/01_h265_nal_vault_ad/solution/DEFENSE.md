@@ -1,19 +1,19 @@
-# H265 NAL Vault AD - Writeup Defense
+# H265 Evidence Portal AD - Writeup Defense
 
 ## 1. Mục tiêu defense
 
-Mục tiêu của defense không phải là tắt dashboard hay bỏ tính năng public preview.
-Checker vẫn cần `/api/store` để đặt flag và `/api/read` để đọc lại flag bằng
-token. Service cũng nên tiếp tục có `/api/vaults` và `/share/<id>` để giống một
-web service thật.
+Mục tiêu của defense không phải là tắt dashboard hay bỏ tính năng redacted
+preview. Checker vẫn cần `/api/store` để import case và đặt flag/custody marker
+nội bộ, còn `/api/read` dùng để đọc lại bằng token. Service cũng nên tiếp tục có
+`/api/cases` và `/case/<id>` để giống một evidence portal thật.
 
 Điểm cần vá là logic tạo preview. Bản lỗi chỉ strip VCL slice nhưng vẫn giữ AUD
 NAL type 35. Vì flag nằm trong `primary_pic_type` của AUD, preview public vẫn
-làm lộ flag.
+làm lộ marker.
 
 ## 2. Chứng minh trước khi vá là bị leak
 
-Trước khi sửa, chay service và đặt một flag mẫu:
+Trước khi sửa, chạy service và đặt một flag mẫu:
 
 ```bash
 cd attack_defense_stego/01_h265_nal_vault_ad
@@ -23,10 +23,10 @@ python checker/checker.py put 127.0.0.1 8000 'blockChainPTIT{4ud_n4l_d3bug_l34k_
 Lệnh này sẽ trả về JSON có `id` và `token`. Attacker chỉ cần `id`, không cần
 token.
 
-Liệt kê vault public:
+Liệt kê case public:
 
 ```bash
-curl http://127.0.0.1:8000/api/vaults
+curl http://127.0.0.1:8000/api/cases
 ```
 
 Chạy exploit:
@@ -73,7 +73,7 @@ Lý do nguy hiểm:
 - `0..31` là VCL NAL, đã bị strip khỏi preview.
 - `35` là AUD NAL, vẫn được giữ lại.
 - Hidden bit nằm ở `primary_pic_type & 1` trong AUD.
-- Vì vậy preview “metadata-only” vẫn đủ dữ liệu để giải flag.
+- Vì vậy redacted preview vẫn đủ dữ liệu để giải flag.
 
 Ảnh cần chụp:
 
@@ -130,7 +130,7 @@ Kiểm tra dashboard vẫn mở được:
 curl http://127.0.0.1:8000/
 ```
 
-Kết quả cần có HTML của trang `H265 NAL Vault`.
+Kết quả cần có HTML của trang `H265 Evidence Portal`.
 
 ## 6. Kiểm tra defense không làm hỏng checker
 
@@ -176,7 +176,7 @@ OK
 Public preview vẫn có thể tồn tại:
 
 ```bash
-curl -I http://127.0.0.1:8000/api/share/flag_1710000000_abcd1234/preview.h265
+curl -I http://127.0.0.1:8000/api/cases/flag_1710000000_abcd1234/redacted-preview.h265
 ```
 
 Nhưng exploit không còn giải được flag:
@@ -196,11 +196,11 @@ solution/screenshots/defense-06-exploit-blocked.png
 ## 8. Giải thích ngắn gọn để đưa vào bài nộp
 
 ```text
-Defense sửa hàm tạo public preview để strip cả AUD NAL type 35, không chỉ strip
-VCL NAL. Lỗi cũ giữ lại AUD vì xem đó là metadata vô hại, nhưng flag nằm trong
-primary_pic_type của AUD. Sau khi bỏ AUD khỏi preview, checker vẫn dùng
-/api/store và /api/read bình thường, dashboard và share page vẫn hoạt động, còn
-attacker không thể khôi phục flag từ preview public.
+Defense sửa hàm tạo redacted preview để strip cả AUD NAL type 35, không chỉ
+strip VCL NAL. Lỗi cũ giữ lại AUD vì xem đó là metadata/timing vô hại, nhưng
+flag nằm trong primary_pic_type của AUD. Sau khi bỏ AUD khỏi preview, checker
+vẫn dùng /api/store và /api/read bình thường, dashboard và case page vẫn hoạt
+động, còn attacker không thể khôi phục flag từ public preview.
 ```
 
 ## 9. Defense tốt hơn
@@ -209,6 +209,6 @@ Ngoài việc strip AUD, có thể harden thêm:
 
 - Tạo preview bằng encoder/transcoder sạch thay vì lọc NAL thủ công.
 - Mã hóa payload trước khi nhúng vào AUD bằng key chỉ service biết.
-- Không publish preview cho carrier chứa secret đang active.
-- Thêm log và rate limit cho các endpoint share/preview.
+- Không publish preview cho case chứa marker đang active.
+- Thêm log và rate limit cho các endpoint case/preview.
 - Rotate flag đã bị lộ sau khi deploy bản vá.

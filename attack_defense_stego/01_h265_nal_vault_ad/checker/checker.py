@@ -141,16 +141,16 @@ def cmd_exploit(args) -> int:
     if args.flag_id:
         try:
             decoded = json.loads(args.flag_id)
-            items = [{"id": decoded["id"], "preview_url": f"/api/share/{decoded['id']}/preview.h265"}]
+            items = [{"id": decoded["id"], "preview_url": f"/api/cases/{decoded['id']}/redacted-preview.h265"}]
         except Exception:
-            items = [{"id": args.flag_id, "preview_url": f"/api/share/{args.flag_id}/preview.h265"}]
+            items = [{"id": args.flag_id, "preview_url": f"/api/cases/{args.flag_id}/redacted-preview.h265"}]
     else:
-        listing = http_json(f"{url}/api/vaults")
+        listing = http_json(f"{url}/api/cases")
         items = listing.get("items", [])
 
     found = []
     for item in items:
-        preview_url = item.get("preview_url") or f"/api/share/{item.get('id')}/preview.h265"
+        preview_url = item.get("preview_url") or f"/api/cases/{item.get('id')}/redacted-preview.h265"
         quoted = urllib.parse.quote(preview_url, safe="/._-")
         try:
             bitstream = http_bytes(f"{url}{quoted}")
@@ -165,7 +165,7 @@ def cmd_exploit(args) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="H265 NAL Vault AD checker")
+    parser = argparse.ArgumentParser(description="H265 Evidence Portal AD checker")
     sub = parser.add_subparsers(dest="mode", required=True)
 
     for name in ("check", "exploit"):

@@ -1,17 +1,20 @@
-# H265 NAL Vault AD - Writeup Attack
+# H265 Evidence Portal AD - Writeup Attack
 
 ## 1. Tóm tắt lỗi
 
-Service lưu flag vào raw HEVC Annex-B bitstream. Luồng hợp lệ `/api/read` và
-`/api/carrier` đều cần `token`, nhưng service có tính năng public preview:
+Service mô phỏng một cổng chia sẻ bằng chứng CCTV. Raw evidence carrier là file
+HEVC/H.265 Annex-B. Custody marker của case được nhúng vào AUD NAL type 35.
+
+Luồng hợp lệ `/api/read` và `/api/carrier` đều cần operator token. Tuy nhiên
+service có public redacted preview:
 
 ```text
-/api/share/<id>/preview.h265
+/api/cases/<id>/redacted-preview.h265
 ```
 
 Preview được quảng bá là metadata-only vì đã bỏ VCL slice chứa dữ liệu ảnh. Lỗi
 là preview vẫn giữ AUD NAL type 35. Trong bài này, AUD không vô hại: bit thấp
-nhất của `primary_pic_type` đang chứa kênh ẩn.
+nhất của `primary_pic_type` đang chứa custody marker.
 
 ## 2. Recon service
 
@@ -33,14 +36,17 @@ Kết quả hợp lệ:
 {"ok":true}
 ```
 
-Dashboard cho thấy service có luồng store/read hợp lệ và có public preview.
+Dashboard cho thấy service có luồng import CCTV evidence từ camera/source, verify
+custody marker bằng token và public redacted preview. Người dùng bình thường chỉ
+nhập Case ID, Operator Token và CCTV Source; custody marker là dữ liệu nội bộ do
+service gắn vào evidence.
 
 ## 3. Tìm target public
 
-Liệt kê các vault public:
+Liệt kê các case public:
 
 ```bash
-curl http://127.0.0.1:8000/api/vaults
+curl http://127.0.0.1:8000/api/cases
 ```
 
 Ví dụ output:
@@ -50,8 +56,8 @@ Ví dụ output:
   "items": [
     {
       "id": "flag_1710000000_abcd1234",
-      "preview_url": "/api/share/flag_1710000000_abcd1234/preview.h265",
-      "share_url": "/share/flag_1710000000_abcd1234"
+      "preview_url": "/api/cases/flag_1710000000_abcd1234/redacted-preview.h265",
+      "case_url": "/case/flag_1710000000_abcd1234"
     }
   ],
   "ok": true
@@ -66,7 +72,7 @@ Nhưng `preview_url` là public.
 Tải public preview:
 
 ```bash
-curl -o preview.h265 http://127.0.0.1:8000/api/share/flag_1710000000_abcd1234/preview.h265
+curl -o preview.h265 http://127.0.0.1:8000/api/cases/flag_1710000000_abcd1234/redacted-preview.h265
 ```
 
 Chạy script exploit:
@@ -128,7 +134,7 @@ CRC32 giúp loại bỏ bitstream sai hoặc không phải carrier của bài.
 
 Đặt ảnh vào `solution/screenshots/` nếu cần nộp kèm:
 
-- `attack-01-dashboard.png`: dashboard `/` có form store/read và public preview.
-- `attack-02-vaults.png`: `/api/vaults` làm lộ target id và preview URL.
-- `attack-03-preview-download.png`: tải được public preview `.h265`.
+- `attack-01-dashboard.png`: dashboard `/` có form import/verify và redacted preview.
+- `attack-02-cases.png`: `/api/cases` làm lộ target id và preview URL.
+- `attack-03-preview-download.png`: tải được public redacted preview `.h265`.
 - `attack-04-exploit-flag.png`: exploit in ra flag.

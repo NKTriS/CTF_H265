@@ -7,9 +7,9 @@ Danh sách ảnh đề xuất:
 ## Attack
 
 1. `attack-01-dashboard.png`
-   - Chụp dashboard `/` có form store/read và public preview.
-2. `attack-02-vaults.png`
-   - Chụp `/api/vaults` làm lộ target id và preview URL.
+   - Chụp dashboard `/` có form import/verify và redacted preview.
+2. `attack-02-cases.png`
+   - Chụp `/api/cases` làm lộ target id và preview URL.
 3. `attack-03-preview-download.png`
    - Chụp tải được public preview `.h265`.
 4. `attack-04-exploit-flag.png`
