@@ -1,11 +1,12 @@
 import hashlib
-import random
 import struct
 import zlib
+from pathlib import Path
 
 
 MAGIC = b"H5AD"
 MAX_SECRET_LEN = 2048
+TEMPLATE_PATH = Path(__file__).with_name("assets") / "cctv_redacted_template.hevc"
 
 
 class StegoError(ValueError):
@@ -40,8 +41,48 @@ def _bits_to_bytes(bits: list[int]) -> bytes:
     return bytes(out)
 
 
-def _randbytes(rng: random.Random, size: int) -> bytes:
-    return bytes(rng.randrange(0, 256) for _ in range(size))
+def _byte_stream(seed: str, label: bytes):
+    counter = 0
+    seed_bytes = seed.encode("utf-8")
+    while True:
+        block = hashlib.sha256(label + seed_bytes + counter.to_bytes(4, "big")).digest()
+        counter += 1
+        for value in block:
+            yield value
+
+
+def _xor_bits(bits: list[int], seed: str) -> list[int]:
+    stream = _byte_stream(seed, b"h265-ad-mask:")
+    out = []
+    current = 0
+    remaining = 0
+    for bit in bits:
+        if remaining == 0:
+            current = next(stream)
+            remaining = 8
+        remaining -= 1
+        out.append(bit ^ ((current >> remaining) & 1))
+    return out
+
+
+def _manchester_encode(bits: list[int]) -> list[int]:
+    encoded = []
+    for bit in bits:
+        encoded.extend((1, 0) if bit else (0, 1))
+    return encoded
+
+
+def _manchester_decode(bits: list[int]) -> list[int]:
+    decoded = []
+    for i in range(0, len(bits) - 1, 2):
+        pair = bits[i:i + 2]
+        if pair == [0, 1]:
+            decoded.append(0)
+        elif pair == [1, 0]:
+            decoded.append(1)
+        else:
+            raise StegoError("bad manchester symbol")
+    return decoded
 
 
 def find_nals(data: bytes):
@@ -77,36 +118,51 @@ def embed_secret(secret: str, seed: str) -> bytes:
 
     packet = MAGIC + struct.pack(">H", len(secret_bytes)) + secret_bytes
     packet += struct.pack(">I", zlib.crc32(secret_bytes) & 0xFFFFFFFF)
-    bits = _bytes_to_bits(packet)
+    bits = _manchester_encode(_xor_bits(_bytes_to_bits(packet), seed))
 
-    digest = hashlib.sha256(seed.encode("utf-8")).digest()
-    rng = random.Random(int.from_bytes(digest[:8], "big"))
-
-    out = bytearray()
-    out += _nal(32, b"\x01HEVC_VPS_NAL_VAULT")
-    out += _nal(33, b"\x01HEVC_SPS_160x90")
-    out += _nal(34, b"\x01HEVC_PPS")
+    template = TEMPLATE_PATH.read_bytes()
+    marker = bytearray()
+    cadence = _byte_stream(seed, b"h265-ad-cadence:")
 
     for index, bit in enumerate(bits):
-        primary_pic_type = (rng.randrange(0, 4) << 1) | bit
+        decoys = 1 + (next(cadence) % 3)
+        for _ in range(decoys):
+            noise = next(cadence) & 0x07
+            marker += _nal(35, bytes([(noise << 5) | 0x10]))
+
+        cover = next(cadence) & 0x03
+        primary_pic_type = (cover << 1) | bit
         aud_rbsp = bytes([(primary_pic_type << 5) | 0x10])
-        out += _nal(35, aud_rbsp)
+        marker += _nal(35, aud_rbsp)
 
-        vcl_type = 19 if index % 37 == 0 else 1
-        payload_len = 24 + (index * 17 + rng.randrange(0, 16)) % 96
-        out += _nal(vcl_type, _randbytes(rng, payload_len))
-
-    out += _nal(36, b"\x80")
-    return bytes(out)
+    return template + bytes(marker)
 
 
-def extract_secret(bitstream: bytes) -> str:
-    bits = []
+def extract_secret(bitstream: bytes, seed: str) -> str:
+    aud_bits = []
     for nal in find_nals(bitstream):
         if nal_type(nal) != 35 or len(nal) < 3:
             continue
         primary_pic_type = (nal[2] >> 5) & 0x07
-        bits.append(primary_pic_type & 1)
+        aud_bits.append(primary_pic_type & 1)
+
+    encoded = []
+    pos = 0
+    cadence = _byte_stream(seed, b"h265-ad-cadence:")
+    while pos < len(aud_bits):
+        decoys = 1 + (next(cadence) % 3)
+        for _ in range(decoys):
+            if pos >= len(aud_bits):
+                break
+            next(cadence)
+            pos += 1
+        if pos >= len(aud_bits):
+            break
+        next(cadence)
+        encoded.append(aud_bits[pos])
+        pos += 1
+
+    bits = _xor_bits(_manchester_decode(encoded), seed)
 
     if len(bits) < 48:
         raise StegoError("not enough aud nals")

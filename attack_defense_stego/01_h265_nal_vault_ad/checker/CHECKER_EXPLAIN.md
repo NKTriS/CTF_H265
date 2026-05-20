@@ -55,9 +55,11 @@ Mode này mô phỏng attacker:
 2. Tải từng redacted preview bằng `/api/cases/<id>/redacted-preview.h265`.
 3. Tách các NAL unit trong raw HEVC Annex-B.
 4. Lấy các AUD NAL type 35 còn sót trong preview.
-5. Đọc bit thấp nhất của `primary_pic_type` trong mỗi AUD.
-6. Kiểm tra packet `H5AD || length || marker || crc32`.
-7. In các marker bắt đầu bằng `blockChainPTIT{`.
+5. Sinh lại cadence từ `case id` để bỏ các AUD giả.
+6. Ghép bit data từ `primary_pic_type & 1`.
+7. Giải Manchester và XOR mask theo `case id`.
+8. Kiểm tra packet `H5AD || length || marker || crc32`.
+9. In các marker bắt đầu bằng `blockChainPTIT{`.
 
 Nếu đã biết target id, có thể truyền:
 

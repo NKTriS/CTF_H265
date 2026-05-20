@@ -12,9 +12,10 @@ service có public redacted preview:
 /api/cases/<id>/redacted-preview.h265
 ```
 
-Preview được quảng bá là metadata-only vì đã bỏ VCL slice chứa dữ liệu ảnh. Lỗi
-là preview vẫn giữ AUD NAL type 35. Trong bài này, AUD không vô hại: bit thấp
-nhất của `primary_pic_type` đang chứa custody marker.
+Preview được quảng bá là bản CCTV đã redact và có thể phát được. Lỗi là pipeline
+tạo preview vẫn copy AUD NAL type 35 từ evidence carrier để giữ timing metadata.
+Trong bài này, AUD không vô hại: chuỗi AUD chứa custody marker đã được trộn bằng
+cadence theo `case id`, AUD giả, XOR mask và Manchester encoding.
 
 ## 2. Recon service
 
@@ -114,15 +115,28 @@ Service dùng AUD NAL:
 nal_unit_type = 35
 ```
 
-Byte RBSP đầu của AUD chứa `primary_pic_type` ở 3 bit cao. Bit ẩn được lấy như
-sau:
+Byte RBSP đầu của AUD chứa `primary_pic_type` ở 3 bit cao. Nếu chỉ lấy thẳng
+`primary_pic_type & 1` rồi ghép bit thì sẽ không ra `H5AD`, vì trong stream có
+AUD giả và bit thật đã bị mask.
 
 ```python
 primary_pic_type = (nal[2] >> 5) & 0x07
-hidden_bit = primary_pic_type & 1
+raw_aud_bit = primary_pic_type & 1
 ```
 
-Các bit được ghép MSB-first thành packet:
+Luồng giải đúng:
+
+```text
+1. Lấy case id từ /api/cases hoặc URL preview.
+2. Sinh lại cadence SHA256("h265-ad-cadence:" || case_id || counter).
+3. Bỏ 1-3 AUD giả trước mỗi AUD data.
+4. Ghép bit data theo primary_pic_type & 1.
+5. Giải Manchester: 01 -> 0, 10 -> 1.
+6. XOR lại với keystream SHA256("h265-ad-mask:" || case_id || counter).
+7. Parse packet H5AD || length || flag || crc32(flag).
+```
+
+Packet cuối cùng:
 
 ```text
 H5AD || 2-byte length || flag || crc32(flag)
@@ -136,5 +150,5 @@ CRC32 giúp loại bỏ bitstream sai hoặc không phải carrier của bài.
 
 - `attack-01-dashboard.png`: dashboard `/` có form import/verify và redacted preview.
 - `attack-02-cases.png`: `/api/cases` làm lộ target id và preview URL.
-- `attack-03-preview-download.png`: tải được public redacted preview `.h265`.
+- `attack-03-preview-download.png`: tải được public redacted preview `.h265` có thể phát như video H.265.
 - `attack-04-exploit-flag.png`: exploit in ra flag.

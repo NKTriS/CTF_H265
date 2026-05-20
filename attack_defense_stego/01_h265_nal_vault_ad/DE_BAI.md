@@ -5,7 +5,7 @@
 - Tên bài: H265 Evidence Portal AD
 - Chủ đề: H.265/HEVC Annex-B, CCTV redaction, AUD NAL steganography
 - Hình thức: Attack/Defense
-- Độ khó đề xuất: Trung bình - khó
+- Độ khó đề xuất: Khó
 - Flag format: `blockChainPTIT{}`
 
 ## Mô tả
@@ -16,18 +16,21 @@ lưu raw H.265 evidence carrier và kiểm tra lại custody marker bằng opera
 token. Marker là dữ liệu nội bộ do hệ thống gắn vào evidence để phục vụ
 chain-of-custody; người dùng bình thường không cần tự nhập marker trên giao diện.
 
-Để chia sẻ nhanh với bên thứ ba, portal tạo public redacted preview. Backend tin
-rằng preview an toàn vì đã strip các VCL slice chứa hình ảnh CCTV. Tuy nhiên
-service vẫn giữ các AUD NAL type 35 để bảo toàn nhịp/timing metadata, trong khi
-custody marker lại được nhúng vào bit thấp nhất của `primary_pic_type` trong AUD.
+Để chia sẻ nhanh với bên thứ ba, portal tạo public redacted preview có thể phát
+như video H.265. Preview dùng luồng CCTV đã giảm chi tiết/redact, nhưng pipeline
+vẫn copy các AUD NAL type 35 từ evidence carrier để bảo toàn nhịp/timing
+metadata. Vấn đề là custody marker lại được nhúng trong chuỗi AUD này. Bản
+mới không để flag ở dạng đọc thẳng: service chèn AUD giả, mã Manchester và XOR
+keystream sinh từ `case id` trước khi ghi vào `primary_pic_type`.
 
 Trong môi trường CTF, checker đóng vai hệ thống nội bộ và đặt flag vào trường
 custody marker khi gọi API import case.
 
 Nhiệm vụ của đội chơi:
 
-- Attack: tìm case public, tải redacted preview `.h265`, parse AUD NAL và khôi
-  phục custody marker/flag.
+- Attack: tìm case public, tải redacted preview `.h265`, parse AUD NAL, bỏ AUD
+  giả theo cadence của `case id`, giải Manchester, bỏ XOR mask và khôi phục
+  custody marker/flag.
 - Defense: sửa preview để không còn rò kênh AUD, nhưng vẫn giữ dashboard,
   `/api/store`, `/api/read` và checker hoạt động bình thường.
 
@@ -67,7 +70,7 @@ GET  /api/cases/<id>/redacted-preview.h265
 
 Trong đó `/api/carrier` là route tải raw carrier hợp lệ nhưng yêu cầu đúng `id`
 và `token`. Điểm yếu nằm ở `/api/cases/<id>/redacted-preview.h265`: preview công
-khai không có VCL slice nhưng vẫn giữ AUD NAL chứa custody marker.
+khai vẫn xem được như video H.265, nhưng nó copy AUD NAL chứa custody marker.
 
 ## Cơ chế giấu tin
 
@@ -83,11 +86,17 @@ Service chèn packet:
 H5AD || 2-byte length || flag || crc32(flag)
 ```
 
-vào chuỗi AUD NAL. Với mỗi AUD:
+vào chuỗi AUD NAL. Packet không được ghi trực tiếp. Service xử lý theo thứ tự:
+
+```text
+packet bits -> XOR mask theo case id -> Manchester encode -> AUD cadence có decoy
+```
+
+Với mỗi AUD data, bit sau mã hóa nằm tại:
 
 ```text
 nal_unit_type = 35
-hidden_bit = primary_pic_type & 1
+encoded_bit = primary_pic_type & 1
 ```
 
 ## Flag mẫu

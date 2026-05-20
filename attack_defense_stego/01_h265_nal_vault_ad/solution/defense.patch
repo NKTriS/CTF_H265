@@ -1,14 +1,13 @@
 diff --git a/service/app.py b/service/app.py
 --- a/service/app.py
 +++ b/service/app.py
-@@ -363,8 +363,6 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
+@@ -371,7 +371,7 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
+ def _preview_bitstream(bitstream: bytes) -> bytes:
      preview = bytearray()
      for nal in find_nals(bitstream):
-         ntype = nal_type(nal)
--        if 0 <= ntype <= 31:
-+        if 0 <= ntype <= 31 or ntype == 35:
-             continue
--        # Vulnerability: AUD NALs are treated as harmless timing metadata, but
--        # primary_pic_type still carries the custody marker channel.
+-        # Vulnerability: the preview is playable because it keeps redacted VCL
+-        # frames, but it also preserves AUD timing metadata carrying the marker.
++        if nal_type(nal) == 35:
++            continue
          preview += b"\x00\x00\x00\x01" + nal
      return bytes(preview)

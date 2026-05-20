@@ -19,14 +19,17 @@ Lỗi nằm ở tính năng public redacted preview:
 GET /api/cases/<id>/redacted-preview.h265
 ```
 
-Backend strip các VCL slice nên nghĩ preview không còn dữ liệu hình ảnh nhạy
-cảm. Nhưng preview vẫn giữ AUD NAL type 35. Trong bài này, flag/custody marker
-nằm trong `primary_pic_type & 1` của các AUD NAL, nên attacker vẫn khôi phục được
-packet:
+Backend tạo bản preview CCTV đã redact và vẫn phát được, rồi copy AUD NAL để giữ
+timing metadata. Nhưng preview vẫn giữ AUD NAL type 35. Trong bài này,
+flag/custody marker không nằm ở dạng đọc thẳng: service chèn AUD giả theo
+cadence sinh từ `case id`, mã Manchester và XOR mask trước khi ghi bit vào
+`primary_pic_type & 1`. Vì `case id` và preview URL đều public, attacker vẫn có
+đủ dữ liệu để khôi phục packet:
 
 ```text
 H5AD || 2-byte length || flag || crc32(flag)
 ```
 
-Defense chính là sửa preview để strip AUD NAL hoặc tạo lại AUD trung tính, đồng
-thời giữ nguyên dashboard, `/api/store`, `/api/read` và checker.
+Defense chính là sửa preview để strip AUD NAL hoặc tạo lại AUD trung tính trong
+khi vẫn giữ các frame preview phát được, đồng thời giữ nguyên dashboard,
+`/api/store`, `/api/read` và checker.

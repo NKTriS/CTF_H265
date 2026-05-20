@@ -231,7 +231,7 @@ INDEX_HTML = r"""
 
     <section class="wide">
       <h2>Redacted Public Preview</h2>
-      <p class="muted">Public previews are advertised as metadata-only evidence exports: the backend removes VCL image slices and keeps HEVC structure for quick third-party review.</p>
+      <p class="muted">Public previews are playable redacted CCTV exports. The backend keeps timing metadata while replacing the raw evidence with a sanitized camera stream.</p>
       <div class="routes">
         <div class="route"><strong>Health</strong><code>GET /health</code></div>
         <div class="route"><strong>Store</strong><code>POST /api/store</code></div>
@@ -240,7 +240,7 @@ INDEX_HTML = r"""
         <div class="route"><strong>Case</strong><code>GET /case/&lt;id&gt;</code></div>
         <div class="route"><strong>Preview</strong><code>GET /api/cases/&lt;id&gt;/redacted-preview.h265</code></div>
       </div>
-      <p class="muted" style="margin-top:14px">The backend assumes the preview is safe because visible image slices have been stripped.</p>
+      <p class="muted" style="margin-top:14px">The backend assumes the preview is safe because visible CCTV detail has been redacted.</p>
     </section>
   </main>
   <script>
@@ -331,7 +331,7 @@ CASE_HTML = r"""
 <body>
   <main>
     <h1>Evidence case: {{ item_id }}</h1>
-    <p>This public redacted preview has removed VCL slices containing visible CCTV imagery. It is intended for structure review without exposing the raw evidence stream.</p>
+    <p>This public redacted preview uses a sanitized HEVC CCTV stream. It is intended for structure review without exposing the raw evidence stream.</p>
     <p>Preview endpoint: <code>/api/cases/{{ item_id }}/redacted-preview.h265</code></p>
     <a href="/api/cases/{{ item_id }}/redacted-preview.h265">Download redacted preview</a>
   </main>
@@ -371,11 +371,8 @@ def _generated_marker(item_id: str, token: str, source: str) -> str:
 def _preview_bitstream(bitstream: bytes) -> bytes:
     preview = bytearray()
     for nal in find_nals(bitstream):
-        ntype = nal_type(nal)
-        if 0 <= ntype <= 31:
-            continue
-        # Vulnerability: AUD NALs are treated as harmless timing metadata, but
-        # primary_pic_type still carries the custody marker channel.
+        # Vulnerability: the preview is playable because it keeps redacted VCL
+        # frames, but it also preserves AUD timing metadata carrying the marker.
         preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
 
@@ -410,7 +407,7 @@ def store_secret():
         return jsonify(ok=False, error="bad secret"), 400
 
     try:
-        bitstream = embed_secret(secret, seed=item_id + ":" + token)
+        bitstream = embed_secret(secret, seed=item_id)
     except StegoError as exc:
         return jsonify(ok=False, error=str(exc)), 400
 
@@ -446,7 +443,7 @@ def read_secret():
         return jsonify(ok=False, error="forbidden"), 403
 
     try:
-        secret = extract_secret((EVIDENCE_DIR / f"{item_id}.h265").read_bytes())
+        secret = extract_secret((EVIDENCE_DIR / f"{item_id}.h265").read_bytes(), seed=item_id)
     except (OSError, StegoError) as exc:
         return jsonify(ok=False, error=str(exc)), 500
 

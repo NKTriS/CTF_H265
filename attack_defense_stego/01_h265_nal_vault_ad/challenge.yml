@@ -11,6 +11,7 @@ files:
     - service/app.py
     - service/stego.py
     - service/requirements.txt
+    - service/assets/cctv_redacted_template.hevc
   checker:
     - checker/checker.py
     - checker/CHECKER_EXPLAIN.md
@@ -24,6 +25,8 @@ description: |
   H265 Evidence Portal là một web service attack/defense mô phỏng cổng import và
   chia sẻ bằng chứng CCTV đã redact. Service gắn custody marker nội bộ của từng
   case vào raw HEVC Annex-B bitstream bằng AUD NAL type 35. Hướng attack là khai
-  thác public redacted preview: preview đã strip VCL slice chứa hình ảnh nhưng
-  vẫn giữ AUD NAL chứa kênh ẩn. Hướng defense là strip AUD khỏi preview hoặc tạo
+  thác public redacted preview: preview vẫn phát được như video H.265 nhưng copy
+  AUD NAL chứa kênh ẩn. Marker không nằm trực tiếp trong LSB đơn giản: service
+  chèn AUD giả, dùng Manchester encoding và XOR mask theo case id trước khi ghi
+  bit vào primary_pic_type. Hướng defense là strip AUD khỏi preview hoặc tạo
   preview sạch, đồng thời giữ dashboard, /api/store và /api/read hoạt động.

@@ -7,9 +7,10 @@ preview. Checker vẫn cần `/api/store` để import case và đặt flag/cust
 nội bộ, còn `/api/read` dùng để đọc lại bằng token. Service cũng nên tiếp tục có
 `/api/cases` và `/case/<id>` để giống một evidence portal thật.
 
-Điểm cần vá là logic tạo preview. Bản lỗi chỉ strip VCL slice nhưng vẫn giữ AUD
-NAL type 35. Vì flag nằm trong `primary_pic_type` của AUD, preview public vẫn
-làm lộ marker.
+Điểm cần vá là logic tạo preview. Bản lỗi tạo preview CCTV đã redact, vẫn phát
+được, nhưng copy AUD NAL type 35 từ evidence carrier. Dù marker đã được làm khó
+bằng AUD giả, Manchester encoding và XOR mask theo `case id`, mọi dữ liệu cần
+để giải vẫn nằm trong public preview nên preview public vẫn làm lộ marker.
 
 ## 2. Chứng minh trước khi vá là bị leak
 
@@ -61,19 +62,19 @@ service/app.py
 def _preview_bitstream(bitstream: bytes) -> bytes:
     preview = bytearray()
     for nal in find_nals(bitstream):
-        ntype = nal_type(nal)
-        if 0 <= ntype <= 31:
-            continue
+        # Vulnerability: the preview is playable because it keeps redacted VCL
+        # frames, but it also preserves AUD timing metadata carrying the marker.
         preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
 ```
 
 Lý do nguy hiểm:
 
-- `0..31` là VCL NAL, đã bị strip khỏi preview.
-- `35` là AUD NAL, vẫn được giữ lại.
-- Hidden bit nằm ở `primary_pic_type & 1` trong AUD.
-- Vì vậy redacted preview vẫn đủ dữ liệu để giải flag.
+- Preview giữ lại VCL frame đã redact để người nhận vẫn xem được video.
+- `35` là AUD NAL, cũng bị copy sang preview.
+- Bit mã hóa nằm ở `primary_pic_type & 1` trong AUD data.
+- AUD giả, cadence và XOR mask chỉ làm tăng độ khó attack, không phải defense.
+- Vì vậy redacted preview vừa xem được, vừa vẫn đủ dữ liệu để giải flag.
 
 Ảnh cần chụp:
 
@@ -83,10 +84,10 @@ solution/screenshots/defense-02-vulnerable-preview-code.png
 
 ## 4. Cách vá nhanh nhất
 
-Strip luôn AUD NAL khỏi preview:
+Giữ các frame preview nhưng strip AUD NAL khỏi preview:
 
 ```python
-if 0 <= ntype <= 31 or ntype == 35:
+if nal_type(nal) == 35:
     continue
 ```
 
@@ -196,11 +197,12 @@ solution/screenshots/defense-06-exploit-blocked.png
 ## 8. Giải thích ngắn gọn để đưa vào bài nộp
 
 ```text
-Defense sửa hàm tạo redacted preview để strip cả AUD NAL type 35, không chỉ
-strip VCL NAL. Lỗi cũ giữ lại AUD vì xem đó là metadata/timing vô hại, nhưng
-flag nằm trong primary_pic_type của AUD. Sau khi bỏ AUD khỏi preview, checker
-vẫn dùng /api/store và /api/read bình thường, dashboard và case page vẫn hoạt
-động, còn attacker không thể khôi phục flag từ public preview.
+Defense sửa hàm tạo redacted preview để strip AUD NAL type 35 trong khi vẫn giữ
+các VCL frame preview. Lỗi cũ copy AUD vì xem đó là metadata/timing vô hại,
+nhưng marker vẫn nằm trong chuỗi AUD sau lớp decoy, Manchester và XOR theo case
+id. Sau khi bỏ AUD khỏi preview, checker vẫn dùng /api/store và /api/read bình
+thường, dashboard và case page vẫn hoạt động, preview vẫn xem được, còn attacker
+không thể khôi phục flag từ public preview.
 ```
 
 ## 9. Defense tốt hơn
