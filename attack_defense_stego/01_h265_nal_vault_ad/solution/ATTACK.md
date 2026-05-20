@@ -17,19 +17,31 @@ Có hai luồng cần phân biệt:
 vẫn phát được như H.265, nhưng backend giữ lại timing metadata. Với video
 HEVC, metadata này nằm trong các NAL unit, đặc biệt là AUD NAL type 35.
 
-## 2. Recon dashboard
+## 2. Target được cấp
 
-Chạy service:
-
-```bash
-cd attack_defense_stego/01_h265_nal_vault_ad/service
-docker compose up --build -d
-```
-
-Mở dashboard:
+Trong vai trò attacker, ta không dựng service và cũng không thao tác trong
+container của đội phòng thủ. Ta chỉ được cấp một URL target, ví dụ khi test
+local là:
 
 ```text
 http://127.0.0.1:8000/
+```
+
+Trong giải thật, URL có thể là:
+
+```text
+http://<team-host>:<port>/
+```
+
+Các bước bên dưới đều thực hiện từ bên ngoài hệ thống, giống một người truy cập
+web bình thường.
+
+## 3. Recon dashboard
+
+Mở dashboard bằng trình duyệt hoặc `curl`:
+
+```bash
+curl http://127.0.0.1:8000/
 ```
 
 Kiểm tra health:
@@ -53,7 +65,7 @@ Trên dashboard có ba ý quan trọng:
 Từ góc nhìn attacker, token là thứ không có. Vì vậy hướng hợp lý là tìm những
 endpoint public trước.
 
-## 3. Tìm case public
+## 4. Tìm case public
 
 Liệt kê các case:
 
@@ -97,7 +109,7 @@ Kết quả:
 
 Vậy ta chuyển sang preview public.
 
-## 4. Tải và kiểm tra preview H.265
+## 5. Tải và kiểm tra preview H.265
 
 Tải preview:
 
@@ -123,7 +135,7 @@ height=360
 có thể được nhận diện. Vì vậy cách khai thác nên bắt đầu từ parser HEVC
 Annex-B, không phải tìm text flag thẳng trong file.
 
-## 5. Tách NAL trong HEVC Annex-B
+## 6. Tách NAL trong HEVC Annex-B
 
 HEVC Annex-B dùng start code:
 
@@ -155,7 +167,7 @@ raw_bit = primary_pic_type & 1
 Nếu đây là bản dễ, chỉ cần nối `raw_bit` của mọi AUD là ra `H5AD`. Nhưng bản
 này không như vậy.
 
-## 6. Vì sao cách đọc LSB trực tiếp thất bại
+## 7. Vì sao cách đọc LSB trực tiếp thất bại
 
 Thử nối thẳng `primary_pic_type & 1` của tất cả AUD, 6 byte đầu thường sẽ là
 rác, ví dụ:
@@ -171,7 +183,8 @@ Nó không phải:
 H  5  A  D
 ```
 
-Lý do nằm trong `service/stego.py`:
+Nếu đây là challenge có kèm source, ta kiểm tra phần xử lý stego trong
+`service/stego.py` và thấy:
 
 ```python
 bits = _manchester_encode(_xor_bits(_bytes_to_bits(packet), seed))
@@ -191,7 +204,11 @@ decoys = 1 + (next(cadence) % 3)
 Nghĩa là trước mỗi AUD chứa bit thật có 1-3 AUD decoy. Nếu lấy hết AUD theo thứ
 tự thì bitstream bị nhiễu ngay từ đầu.
 
-## 7. Reverse thuật toán nhúng
+Nếu chơi theo kiểu black-box hơn, dấu hiệu để suy ra hướng này là: số lượng AUD
+rất nhiều, đọc LSB trực tiếp không ra magic `H5AD`, nhưng pattern bit có thể
+tách thành cặp hợp lệ sau khi bỏ nhiễu theo một seed public.
+
+## 8. Reverse thuật toán nhúng
 
 Trong `/api/store`, service gọi:
 
@@ -233,7 +250,7 @@ preview.h265
 -> parse H5AD, length, marker, crc32
 ```
 
-## 8. Code giải thích từng phần
+## 9. Code giải thích từng phần
 
 Sinh stream SHA256 giống service:
 
@@ -291,7 +308,7 @@ crc = struct.unpack(">I", packet[6 + size:10 + size])[0]
 assert zlib.crc32(marker) & 0xffffffff == crc
 ```
 
-## 9. Chạy exploit hoàn chỉnh
+## 10. Chạy exploit hoàn chỉnh
 
 Nếu muốn để script tự lấy case public:
 
@@ -311,7 +328,7 @@ Output:
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
-## 10. Kết luận attack
+## 11. Kết luận attack
 
 Lỗi không nằm ở việc `/api/read` thiếu kiểm tra token. Route đó vẫn kiểm tra
 đúng. Lỗi nằm ở assumption sai của preview pipeline: hệ thống nghĩ AUD chỉ là
@@ -319,7 +336,7 @@ timing metadata vô hại, nhưng marker lại được giấu trong AUD. Vì pr
 copy AUD nguyên vẹn và `case id` public đủ để khôi phục cadence/mask, attacker
 có thể lấy flag chỉ từ redacted preview.
 
-## 11. Ảnh chụp nên có
+## 12. Ảnh chụp nên có
 
 Đặt ảnh vào `solution/screenshots/` nếu cần nộp kèm:
 
