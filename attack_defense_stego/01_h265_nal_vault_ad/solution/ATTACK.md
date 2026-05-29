@@ -62,6 +62,8 @@ Trên dashboard có ba ý quan trọng:
 - Có form verify custody marker bằng `case id` và `operator token`.
 - Có public redacted preview cho từng case.
 
+![Dashboard H265 Evidence Portal](screenshots/attack-01-dashboard.png)
+
 Từ góc nhìn attacker, token là thứ không có. Vì vậy hướng hợp lý là tìm những
 endpoint public trước.
 
@@ -88,6 +90,8 @@ Ví dụ:
   "ok": true
 }
 ```
+
+![Public cases endpoint làm lộ case id và preview URL](screenshots/attack-02-cases.png)
 
 Thông tin quan trọng nhất là `id`. Bài này dùng chính `case id` làm seed để tạo
 cadence và XOR mask. Đây là điểm khiến preview public đủ dữ liệu để giải, dù
@@ -130,6 +134,8 @@ codec_name=hevc
 width=640
 height=360
 ```
+
+![Preview public là HEVC bitstream hợp lệ](screenshots/attack-03-ffprobe-preview.png)
 
 Điều này cho thấy preview không phải file giả hoàn toàn. Nó là HEVC bitstream
 có thể được nhận diện. Vì vậy cách khai thác nên bắt đầu từ parser HEVC
@@ -182,6 +188,8 @@ Nó không phải:
 48 35 41 44 00 ...
 H  5  A  D
 ```
+
+![Đọc LSB trực tiếp không ra magic H5AD](screenshots/attack-04-direct-lsb-fails.png)
 
 Nếu đây là challenge có kèm source, ta kiểm tra phần xử lý stego trong
 `service/stego.py` và thấy:
@@ -328,6 +336,8 @@ Output:
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
+![Exploit khôi phục được custody marker/flag](screenshots/attack-05-exploit-flag.png)
+
 ## 11. Kết luận attack
 
 Lỗi không nằm ở việc `/api/read` thiếu kiểm tra token. Route đó vẫn kiểm tra
@@ -336,9 +346,9 @@ timing metadata vô hại, nhưng marker lại được giấu trong AUD. Vì pr
 copy AUD nguyên vẹn và `case id` public đủ để khôi phục cadence/mask, attacker
 có thể lấy flag chỉ từ redacted preview.
 
-## 12. Ảnh chụp nên có
+## 12. Ảnh chụp đã kèm
 
-Đặt ảnh vào `solution/screenshots/` nếu cần nộp kèm:
+Các ảnh minh họa đã được lưu trong `solution/screenshots/`:
 
 - `attack-01-dashboard.png`: dashboard có import/verify và redacted preview.
 - `attack-02-cases.png`: `/api/cases` làm lộ `id` và `preview_url`.

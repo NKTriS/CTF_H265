@@ -77,6 +77,8 @@ Nếu chưa vá, exploit in ra flag:
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
+![Trước khi vá, exploit lấy được flag từ preview public](screenshots/defense-01-before-exploit-leaks-flag.png)
+
 Kết luận: preview public đủ dữ liệu để khôi phục marker, dù `/api/read` vẫn yêu
 cầu token.
 
@@ -93,6 +95,8 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
         preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
 ```
+
+![Code lỗi copy toàn bộ NAL sang preview](screenshots/defense-02-vulnerable-preview-code.png)
 
 Vấn đề là hàm này copy toàn bộ NAL sang preview. Nó giữ được video preview phát
 được, nhưng cũng giữ luôn AUD NAL type 35.
@@ -147,6 +151,8 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
         preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
 ```
+
+![Code vá strip AUD NAL type 35 khỏi preview](screenshots/defense-03-patched-preview-code.png)
 
 Lý do chọn cách này:
 
@@ -223,6 +229,8 @@ Output mong đợi:
 OK
 ```
 
+![Sau khi vá, checker check vẫn OK](screenshots/defense-04-checker-ok-after-patch.png)
+
 Kiểm tra rõ hơn bằng `put` và `get`:
 
 ```bash
@@ -246,6 +254,8 @@ Output mong đợi:
 ```text
 OK
 ```
+
+![Sau khi vá, put/get vẫn đọc marker hợp lệ](screenshots/defense-05-get-ok-after-patch.png)
 
 Điều này chứng minh defense không làm hỏng chức năng lưu và đọc marker hợp lệ.
 
@@ -274,6 +284,8 @@ NAL. Kết quả mong muốn:
 AUD type 35 count: 0
 ```
 
+![Sau khi vá, preview không còn AUD và exploit bị chặn](screenshots/defense-06-exploit-blocked.png)
+
 ## 9. Vì sao không nên vá bằng cách khác
 
 Không nên chỉ đổi thuật toán encode phức tạp hơn, ví dụ tăng decoy, đổi XOR
@@ -299,9 +311,9 @@ Bản vá strip AUD là đủ cho bài CTF. Trong sản phẩm thật, nên làm
 - Thêm log và rate limit cho `/api/cases/<id>/redacted-preview.h265`.
 - Rotate marker/flag đã bị lộ sau khi deploy bản vá.
 
-## 11. Ảnh chụp nên có
+## 11. Ảnh chụp đã kèm
 
-Đặt ảnh vào `solution/screenshots/` nếu cần nộp:
+Các ảnh minh họa đã được lưu trong `solution/screenshots/`:
 
 - `defense-01-before-exploit-leaks-flag.png`: exploit lấy được flag trước vá.
 - `defense-02-vulnerable-preview-code.png`: `_preview_bitstream` copy mọi NAL.
