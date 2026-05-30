@@ -14,14 +14,13 @@ Có hai luồng cần phân biệt:
   yêu cầu token.
 
 Điểm đáng nghi nằm ở preview public. Giao diện nói đây là bản CCTV đã redact,
-vẫn phát được như H.265, nhưng backend giữ lại timing metadata. Với video
-HEVC, metadata này nằm trong các NAL unit, đặc biệt là AUD NAL type 35.
+vẫn phát được như H.265, nhưng backend giữ lại timing metadata. Với video HEVC,
+metadata này nằm trong các NAL unit, đặc biệt là AUD NAL type 35.
 
 ## 2. Target được cấp
 
 Trong vai trò attacker, ta không dựng service và cũng không thao tác trong
-container của đội phòng thủ. Ta chỉ được cấp một URL target, ví dụ khi test
-local là:
+container của đội phòng thủ. Ta chỉ được cấp một URL target, ví dụ khi test local:
 
 ```text
 http://127.0.0.1:8000/
@@ -38,23 +37,13 @@ web bình thường.
 
 ## 3. Recon dashboard
 
-Mở dashboard bằng trình duyệt hoặc `curl`:
+Mở dashboard bằng trình duyệt:
 
-```bash
-curl http://127.0.0.1:8000/
+```text
+http://127.0.0.1:8000/
 ```
 
-Kiểm tra health:
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Kết quả bình thường:
-
-```json
-{"ok":true}
-```
+![Dashboard H265 Evidence Portal](screenshots/attack-01-dashboard.png)
 
 Trên dashboard có ba ý quan trọng:
 
@@ -62,63 +51,54 @@ Trên dashboard có ba ý quan trọng:
 - Có form verify custody marker bằng `case id` và `operator token`.
 - Có public redacted preview cho từng case.
 
-![Dashboard H265 Evidence Portal](screenshots/attack-01-dashboard.png)
-
 Từ góc nhìn attacker, token là thứ không có. Vì vậy hướng hợp lý là tìm những
 endpoint public trước.
 
 ## 4. Tìm case public
 
-Liệt kê các case:
+Liệt kê các case public:
 
 ```bash
 curl http://127.0.0.1:8000/api/cases
 ```
 
-Ví dụ:
+![Public cases endpoint làm lộ case id và preview URL](screenshots/attack-02-cases.png)
+
+Output trả về có dạng:
 
 ```json
 {
   "items": [
     {
-      "id": "flag_1710000000_abcd1234",
-      "source": "lobby_cam_01",
-      "case_url": "/case/flag_1710000000_abcd1234",
-      "preview_url": "/api/cases/flag_1710000000_abcd1234/redacted-preview.h265"
+      "case_url": "/case/flag_1780132060_da66f92c",
+      "created_at": 1780132060,
+      "id": "flag_1780132060_da66f92c",
+      "preview_url": "/api/cases/flag_1780132060_da66f92c/redacted-preview.h265",
+      "source": "lobby_cam_01"
     }
   ],
   "ok": true
 }
 ```
 
-![Public cases endpoint làm lộ case id và preview URL](screenshots/attack-02-cases.png)
+Thông tin quan trọng nhất là `id` và `preview_url`.
 
-Thông tin quan trọng nhất là `id`. Bài này dùng chính `case id` làm seed để tạo
-cadence và XOR mask. Đây là điểm khiến preview public đủ dữ liệu để giải, dù
-token không bị lộ.
+Attacker không có `operator token`, nên không thể dùng luồng hợp lệ để đọc marker
+qua `/api/read`. Tuy nhiên `preview_url` là public, nên attacker có thể tải bản
+redacted preview về để phân tích.
 
-Thử đọc marker bằng API hợp lệ sẽ bị chặn nếu không có token:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/read ^
-  -H "Content-Type: application/json" ^
-  -d "{\"id\":\"flag_1710000000_abcd1234\",\"token\":\"wrongtoken\"}"
-```
-
-Kết quả:
-
-```json
-{"error":"forbidden","ok":false}
-```
-
-Vậy ta chuyển sang preview public.
-
-## 5. Tải và kiểm tra preview H.265
+## 5. Tải preview và kiểm tra file H.265
 
 Tải preview:
 
 ```bash
-curl -o preview.h265 http://127.0.0.1:8000/api/cases/flag_1710000000_abcd1234/redacted-preview.h265
+curl.exe -L -o preview.h265 http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/redacted-preview.h265
+```
+
+Kiểm tra file đã tải:
+
+```bash
+dir preview.h265
 ```
 
 Kiểm tra bằng `ffprobe`:
@@ -127,7 +107,9 @@ Kiểm tra bằng `ffprobe`:
 ffprobe -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 preview.h265
 ```
 
-Kết quả mong đợi:
+![Preview public là HEVC bitstream hợp lệ](screenshots/attack-03-ffprobe-preview.png)
+
+Kết quả:
 
 ```text
 codec_name=hevc
@@ -135,15 +117,15 @@ width=640
 height=360
 ```
 
-![Preview public là HEVC bitstream hợp lệ](screenshots/attack-03-ffprobe-preview.png)
+Điều này cho thấy preview không phải file text hay file giả. Nó là raw HEVC/H.265
+bitstream thật, có thể được `ffprobe` nhận diện.
 
-Điều này cho thấy preview không phải file giả hoàn toàn. Nó là HEVC bitstream
-có thể được nhận diện. Vì vậy cách khai thác nên bắt đầu từ parser HEVC
-Annex-B, không phải tìm text flag thẳng trong file.
+Vì vậy hướng khai thác hợp lý là parse cấu trúc H.265 Annex-B, không phải tìm
+flag trực tiếp bằng `strings`.
 
-## 6. Tách NAL trong HEVC Annex-B
+## 6. Phân tích cấu trúc H.265 Annex-B
 
-HEVC Annex-B dùng start code:
+HEVC Annex-B dùng start code để tách NAL unit:
 
 ```text
 00 00 01
@@ -157,7 +139,7 @@ header byte đầu:
 nal_unit_type = (nal[0] >> 1) & 0x3f
 ```
 
-Ta quan tâm AUD NAL:
+Bài này dùng AUD NAL:
 
 ```text
 nal_unit_type = 35
@@ -170,61 +152,19 @@ primary_pic_type = (nal[2] >> 5) & 0x07
 raw_bit = primary_pic_type & 1
 ```
 
-Nếu đây là bản dễ, chỉ cần nối `raw_bit` của mọi AUD là ra `H5AD`. Nhưng bản
-này không như vậy.
+Nếu bài đơn giản, chỉ cần nối `raw_bit` của toàn bộ AUD là ra flag. Nhưng bản này
+có thêm decoy, Manchester encoding và XOR mask theo `case id`, nên phải giải
+ngược đúng thuật toán.
 
-## 7. Vì sao cách đọc LSB trực tiếp thất bại
+## 7. Reverse thuật toán nhúng
 
-Thử nối thẳng `primary_pic_type & 1` của tất cả AUD, 6 byte đầu thường sẽ là
-rác, ví dụ:
-
-```text
-bc 4a 17 d6 4b cb
-```
-
-Nó không phải:
-
-```text
-48 35 41 44 00 ...
-H  5  A  D
-```
-
-![Đọc LSB trực tiếp không ra magic H5AD](screenshots/attack-04-direct-lsb-fails.png)
-
-Nếu đây là challenge có kèm source, ta kiểm tra phần xử lý stego trong
-`service/stego.py` và thấy:
-
-```python
-bits = _manchester_encode(_xor_bits(_bytes_to_bits(packet), seed))
-```
-
-Trước khi nhúng, packet bị xử lý qua hai lớp:
-
-- XOR mask theo `case id`.
-- Manchester encoding.
-
-Sau đó service còn chèn AUD giả:
-
-```python
-decoys = 1 + (next(cadence) % 3)
-```
-
-Nghĩa là trước mỗi AUD chứa bit thật có 1-3 AUD decoy. Nếu lấy hết AUD theo thứ
-tự thì bitstream bị nhiễu ngay từ đầu.
-
-Nếu chơi theo kiểu black-box hơn, dấu hiệu để suy ra hướng này là: số lượng AUD
-rất nhiều, đọc LSB trực tiếp không ra magic `H5AD`, nhưng pattern bit có thể
-tách thành cặp hợp lệ sau khi bỏ nhiễu theo một seed public.
-
-## 8. Reverse thuật toán nhúng
-
-Trong `/api/store`, service gọi:
+Trong source service, khi lưu marker, backend gọi:
 
 ```python
 bitstream = embed_secret(secret, seed=item_id)
 ```
 
-Vậy seed không phải token. Seed là `case id`, mà attacker lấy được từ
+Vậy seed không phải token. Seed chính là `case id`, mà attacker đã lấy được từ
 `/api/cases`.
 
 Packet gốc có cấu trúc:
@@ -233,18 +173,18 @@ Packet gốc có cấu trúc:
 H5AD || 2-byte length || marker || crc32(marker)
 ```
 
-Quá trình nhúng:
+Trước khi nhúng vào AUD, service xử lý packet như sau:
 
 ```text
 packet bytes
 -> đổi sang bit MSB-first
 -> XOR với keystream SHA256("h265-ad-mask:" || case_id || counter)
 -> Manchester encode: 0 -> 01, 1 -> 10
--> với mỗi encoded bit: chèn 1-3 AUD giả
+-> trước mỗi bit thật chèn 1-3 AUD giả
 -> ghi bit thật vào primary_pic_type & 1 của AUD data
 ```
 
-Quá trình giải phải làm ngược lại:
+Do đó quá trình giải phải làm ngược lại:
 
 ```text
 preview.h265
@@ -258,77 +198,21 @@ preview.h265
 -> parse H5AD, length, marker, crc32
 ```
 
-## 9. Code giải thích từng phần
+## 8. Chạy exploit
 
-Sinh stream SHA256 giống service:
-
-```python
-def byte_stream(seed: str, label: bytes):
-    counter = 0
-    seed_bytes = seed.encode("utf-8")
-    while True:
-        block = hashlib.sha256(label + seed_bytes + counter.to_bytes(4, "big")).digest()
-        counter += 1
-        for value in block:
-            yield value
-```
-
-Bỏ AUD giả:
-
-```python
-encoded = []
-pos = 0
-cadence = byte_stream(case_id, b"h265-ad-cadence:")
-
-while pos < len(aud_bits):
-    decoys = 1 + (next(cadence) % 3)
-    for _ in range(decoys):
-        next(cadence)
-        pos += 1
-
-    next(cadence)
-    encoded.append(aud_bits[pos])
-    pos += 1
-```
-
-Giải Manchester:
-
-```python
-01 -> 0
-10 -> 1
-```
-
-Sau đó XOR lại:
-
-```python
-bits = xor_bits(decoded_bits, case_id)
-```
-
-Cuối cùng parse packet:
-
-```python
-header = bits_to_bytes(bits[:48])
-assert header[:4] == b"H5AD"
-size = struct.unpack(">H", header[4:6])[0]
-packet = bits_to_bytes(bits[:(10 + size) * 8])
-marker = packet[6:6 + size]
-crc = struct.unpack(">I", packet[6 + size:10 + size])[0]
-assert zlib.crc32(marker) & 0xffffffff == crc
-```
-
-## 10. Chạy exploit hoàn chỉnh
-
-Nếu muốn để script tự lấy case public:
+Chạy exploit tự động:
 
 ```bash
 python solution/exploit.py http://127.0.0.1:8000
 ```
 
-Nếu đã biết id:
+Hoặc nếu đã biết `case id`:
 
 ```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1710000000_abcd1234
+python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c
 ```
+
+![Exploit khôi phục được custody marker/flag](screenshots/attack-05-exploit-flag.png)
 
 Output:
 
@@ -336,22 +220,11 @@ Output:
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
-![Exploit khôi phục được custody marker/flag](screenshots/attack-05-exploit-flag.png)
+## 9. Kết luận attack
 
-## 11. Kết luận attack
+Lỗi không nằm ở việc `/api/read` thiếu kiểm tra token. Route đó vẫn kiểm tra đúng.
 
-Lỗi không nằm ở việc `/api/read` thiếu kiểm tra token. Route đó vẫn kiểm tra
-đúng. Lỗi nằm ở assumption sai của preview pipeline: hệ thống nghĩ AUD chỉ là
-timing metadata vô hại, nhưng marker lại được giấu trong AUD. Vì preview public
-copy AUD nguyên vẹn và `case id` public đủ để khôi phục cadence/mask, attacker
-có thể lấy flag chỉ từ redacted preview.
-
-## 12. Ảnh chụp đã kèm
-
-Các ảnh minh họa đã được lưu trong `solution/screenshots/`:
-
-- `attack-01-dashboard.png`: dashboard có import/verify và redacted preview.
-- `attack-02-cases.png`: `/api/cases` làm lộ `id` và `preview_url`.
-- `attack-03-ffprobe-preview.png`: preview được nhận diện là HEVC 640x360.
-- `attack-04-direct-lsb-fails.png`: đọc LSB trực tiếp không ra `H5AD`.
-- `attack-05-exploit-flag.png`: exploit in ra flag.
+Lỗi nằm ở assumption sai của preview pipeline: hệ thống nghĩ AUD chỉ là timing
+metadata vô hại, nhưng marker lại được giấu trong AUD. Vì preview public copy AUD
+nguyên vẹn và `case id` public đủ để khôi phục cadence/mask, attacker có thể lấy
+flag chỉ từ redacted preview.
