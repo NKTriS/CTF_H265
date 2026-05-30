@@ -257,8 +257,6 @@ Output mong đợi:
 OK
 ```
 
-![Sau khi vá, put/get vẫn đọc marker hợp lệ](screenshots/defense-05-get-ok-after-patch.png)
-
 Điều này chứng minh defense không làm hỏng chức năng lưu và đọc marker hợp lệ.
 
 ## 8. Chứng minh exploit bị chặn
