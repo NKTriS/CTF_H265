@@ -214,6 +214,8 @@ curl http://127.0.0.1:8000/
 
 Nếu thấy HTML chứa `H265 Evidence Portal` là ổn.
 
+![Restart service sau khi áp dụng defense patch](screenshots/defense-04-restart-after-patch.png)
+
 ## 7. Kiểm tra chức năng hợp lệ không hỏng
 
 Chạy checker tổng quát:
