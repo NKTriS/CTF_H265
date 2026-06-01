@@ -5,7 +5,7 @@
 - Tên bài: H265 Evidence Portal AD
 - Chủ đề: H.265/HEVC Annex-B, CCTV redaction, preview sanitizer, metadata side-channel
 - Hình thức: Attack/Defense
-- Độ khó đề xuất: Khó
+- Độ khó đề xuất: Dễ
 - Flag format: `blockChainPTIT{}`
 
 ## Mô tả

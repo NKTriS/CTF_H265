@@ -1,7 +1,7 @@
 id: ad_01_h265_evidence_portal
 name: H265 Evidence Portal AD
 category: Attack/Defense H.265 Steganography
-difficulty: hard
+difficulty: easy
 flag: blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 type: attack-defense
 files:
