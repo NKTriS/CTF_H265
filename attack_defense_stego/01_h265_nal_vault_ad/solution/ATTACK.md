@@ -20,6 +20,35 @@ Preview công khai vẫn chứa metadata hoặc dấu vết nội bộ từ vide
 
 Mục tiêu của attacker là lấy flag từ dữ liệu công khai, không cần token.
 
+## Phân Loại Các Hướng Khai Thác
+
+Không phải endpoint nào cũng trả flag trực tiếp. Trong bài này cần phân biệt rõ hai nhóm:
+
+```text
+Hướng lấy cờ trực tiếp:
+- AUD NAL: bóc bit giấu trong NAL type 35.
+- SEI NAL: bóc trace H5DBG trong NAL type 39/40.
+- Preview cache cũ: tải lại preview lỗi cũ rồi vẫn bóc AUD/SEI.
+- Route private sai phân quyền: chỉ xảy ra nếu /api/read hoặc /api/carrier bị hở token.
+
+Hướng trinh sát lấy cờ gián tiếp:
+- /api/cases
+- /case/<id>
+- /share/<share_id>
+- /api/share/<share_id>/manifest.json
+- /api/audit
+- /api/preview-jobs
+```
+
+Các hướng trinh sát thường không chứa flag. Chúng có tác dụng tìm `case_id`, `preview_url`, `share_id`, trạng thái preview hoặc dấu vết cache. Sau đó attacker dùng thông tin này để quay lại khai thác AUD, SEI hoặc cache cũ.
+
+Vì vậy câu đúng là:
+
+```text
+Trinh sát không tự giải ra cờ.
+Trinh sát giúp tìm đúng file hoặc đúng case để khai thác lỗi còn sót.
+```
+
 ## Dữ Liệu Cần Có
 
 Trước khi khai thác cần có:
@@ -547,7 +576,7 @@ python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c -
 
 Điểm quan trọng của hướng này là attacker không cần tìm bug mới. Attacker chỉ tận dụng file public cũ mà service vẫn trả.
 
-## Hướng 4 - Lấy Thông Tin Qua Share Và Manifest
+## Hướng 4 - Trinh Sát Qua Share Và Manifest
 
 ### Khi Nào Dùng?
 
@@ -571,7 +600,11 @@ Các endpoint này có thể làm lộ:
 - thời điểm tạo preview
 - loại artifact public
 
-### Cách Dùng Để Lấy Cờ
+### Cách Dùng Để Lấy Cờ Gián Tiếp
+
+Share và manifest **không phải nơi chứa flag trực tiếp**. Chúng chỉ nguy hiểm khi defender đã vá một phần, ví dụ ẩn `/api/cases`, nhưng lại quên rằng share/manifest vẫn làm lộ `case_id` và `preview_url`.
+
+Chuỗi khai thác khi vá thiếu:
 
 1. Mở share hoặc manifest.
 2. Tìm `case_id`.
@@ -583,9 +616,25 @@ Các endpoint này có thể làm lộ:
 8. Nếu có SEI, dùng hướng 2.
 9. Nếu cả hai đều không có, kiểm tra hướng cache cũ.
 
-Share và manifest thường không trả flag trực tiếp. Chúng giúp attacker tìm đúng file cần khai thác.
+Ví dụ defender chỉ vá `/api/cases`:
 
-## Hướng 5 - Lấy Thông Tin Qua Nhật Ký Và Hàng Đợi Preview
+```text
+/api/cases bị ẩn
+-> attacker tìm được /share/<share_id>
+-> manifest vẫn lộ case_id và preview_url
+-> attacker tải redacted-preview.h265
+-> preview vẫn còn AUD hoặc SEI
+-> lấy được flag
+```
+
+Kết luận cho hướng này:
+
+```text
+Share/manifest không lấy cờ một mình.
+Share/manifest lấy cờ gián tiếp nếu chúng còn dẫn tới preview đang hở AUD/SEI hoặc cache cũ.
+```
+
+## Hướng 5 - Trinh Sát Qua Nhật Ký Và Hàng Đợi Preview
 
 ### Khi Nào Dùng?
 
@@ -608,7 +657,9 @@ Nếu public, các endpoint này có thể làm lộ:
 - preview nào đang nằm trong cache
 - thời điểm nên tải lại preview
 
-### Cách Dùng Để Lấy Cờ
+### Cách Dùng Để Lấy Cờ Gián Tiếp
+
+Audit và preview-jobs cũng **không phải nơi chứa flag trực tiếp**. Điểm nguy hiểm là chúng có thể làm lộ case nào vừa được checker đặt flag, case nào vừa render preview, hoặc preview nào đang có trong cache.
 
 1. Xem audit để tìm sự kiện tạo case.
 2. Lấy `case_id` mới.
@@ -617,7 +668,23 @@ Nếu public, các endpoint này có thể làm lộ:
 5. Thử hướng AUD.
 6. Nếu AUD fail, thử hướng SEI.
 
-Đây là hướng hỗ trợ chọn mục tiêu. Nó không tự giải mã flag, nhưng giúp attacker đánh đúng case đang có flag mới.
+Ví dụ defender đã ẩn `/api/cases`, nhưng quên để `/api/audit` public:
+
+```text
+/api/cases không còn liệt kê case
+-> /api/audit vẫn lộ case_id mới
+-> /api/preview-jobs cho biết preview đã ready
+-> attacker tự dựng URL /api/cases/<case_id>/redacted-preview.h265
+-> tải preview
+-> nếu preview còn AUD/SEI hoặc cache cũ, lấy được flag
+```
+
+Kết luận cho hướng này:
+
+```text
+Audit/preview-jobs là hướng chọn mục tiêu.
+Chúng chỉ giúp lấy cờ gián tiếp khi preview hoặc cache vẫn còn lỗi thật.
+```
 
 ## Hướng 6 - Kiểm Tra Lỗi Phân Quyền Ở Route Riêng Tư
 
@@ -650,6 +717,26 @@ Nếu token sai mà server vẫn trả marker hoặc carrier gốc, đó là l�
 
 Trong bản hiện tại, route riêng tư đã kiểm tra token. Vì vậy hướng chính vẫn là preview công khai.
 
+## Sau Khi Defender Vá Một Phần Thì Hướng Nào Còn Dùng Được?
+
+Bảng này giúp đọc bài theo đúng kiểu attack-defense: attacker không chỉ thử một đường, mà thử đường còn hở sau khi defender vá thiếu.
+
+| Defender vá gì? | Hướng còn có thể lấy cờ gián tiếp |
+| --- | --- |
+| Ẩn `/api/cases` | Dùng share/manifest/audit để tìm `case_id`, rồi khai thác AUD/SEI. |
+| Xóa AUD type `35` | Nếu SEI type `39/40` còn `H5DBG`, dùng hướng SEI. |
+| Xóa SEI type `39/40` | Nếu AUD type `35` còn bit giấu, dùng hướng AUD. |
+| Vá code tạo preview mới | Nếu cache cũ chưa xóa hoặc chưa đổi version cache, tải preview cũ rồi khai thác AUD/SEI. |
+| Ẩn audit và preview-jobs | Vẫn có thể lấy `case_id` qua `/api/cases`, share hoặc manifest nếu các endpoint đó còn public. |
+| Vá `/api/read` và `/api/carrier` | Chỉ chặn đường private. Nếu preview public còn leak thì attacker vẫn lấy cờ. |
+
+Nói gọn:
+
+```text
+Các endpoint trinh sát chỉ là đường tìm mục tiêu.
+Muốn ra flag, cuối cùng vẫn cần một lỗi thật còn sống: AUD leak, SEI leak, cache cũ, hoặc private route hở.
+```
+
 ## Khai Thác Tự Động
 
 Sau khi hiểu cách làm tay, có thể dùng script tự động có sẵn để tiết kiệm thời gian.
@@ -679,6 +766,7 @@ Cách đọc kết quả:
 - `aud` thất bại nhưng `sei` thành công: defender chỉ vá AUD, SEI vẫn hở.
 - cả hai thất bại nhưng file cũ còn AUD/SEI: lỗi nằm ở cache.
 - cả hai thất bại và preview không còn AUD/SEI: đường preview đã được làm sạch tốt hơn.
+- các endpoint trinh sát còn public nhưng AUD/SEI/cache đều sạch: chưa đủ để lấy flag.
 
 ## Kết Luận
 
