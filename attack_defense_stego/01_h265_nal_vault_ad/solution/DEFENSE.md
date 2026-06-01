@@ -286,7 +286,153 @@ AUD type 35 count: 0
 
 ![Sau khi vá, preview không còn AUD và exploit bị chặn](screenshots/defense-06-exploit-blocked.png)
 
-## 9. Vì sao không nên vá bằng cách khác
+## 9. Vòng attack-defense tiếp theo
+
+Trong attack-defense thật, defense hiếm khi kết thúc sau một bản vá đầu tiên. Đội tấn
+công sẽ thử lại các giả định cũ và tìm phần còn sót. Với bài này, vòng tiếp theo rất
+thực tế là stale preview cache.
+
+### Defense 1: strip AUD khi render preview
+
+Bản vá đầu tiên là sửa `_preview_bitstream` để bỏ AUD NAL type 35:
+
+```python
+if nal_type(nal) == 35:
+    continue
+```
+
+Bản vá này đúng hướng vì nó chặn kênh chứa marker. Tuy nhiên nó chỉ tác động tới preview
+được render sau khi code mới chạy.
+
+### Attack 2: khai thác preview cũ còn nằm trong cache
+
+Backend đang serve preview theo logic:
+
+```python
+preview_path = PREVIEW_DIR / f"{item_id}_redacted_preview.h265"
+if not preview_path.exists():
+    preview_path = _render_preview(item_id)
+```
+
+Nếu trước khi vá đã có người tải preview một lần, file cũ đã nằm trong `PREVIEW_DIR`.
+Sau khi deploy Defense 1, service có thể vẫn trả file cũ đó, không render lại. Attacker
+chỉ cần gọi lại URL cũ:
+
+```bash
+curl -L -o stale_preview.h265 http://127.0.0.1:8000/api/cases/flag_1710000000_abcd1234/redacted-preview.h265
+python solution/exploit.py http://127.0.0.1:8000 --id flag_1710000000_abcd1234
+```
+
+Nếu preview cũ chưa bị xóa, exploit vẫn có thể in ra flag. Đây là một lỗi defense rất
+hay gặp: vá code nhưng quên artifact đã sinh ra trước đó.
+
+Có thể kiểm tra bằng cách đếm AUD trong file vừa tải:
+
+```bash
+python -c "from pathlib import Path; from solution.exploit import find_nals,nal_type; data=Path('stale_preview.h265').read_bytes(); print(sum(1 for n in find_nals(data) if nal_type(n)==35))"
+```
+
+Nếu kết quả lớn hơn `0`, public preview vẫn còn dữ liệu để attacker reverse.
+
+### Defense 2: invalidate cache và render lại preview sạch
+
+Sau khi phát hiện Attack 2, không chỉ sửa hàm render là đủ. Cần ép service không dùng
+lại preview được sinh bởi sanitizer cũ. Có hai cách:
+
+- Cách nhanh khi vận hành: xóa toàn bộ preview cache rồi restart worker.
+- Cách bền hơn trong code: gắn version cho preview sanitizer, nếu cache không đúng
+  version thì render lại.
+
+Ví dụ hướng bền hơn:
+
+```python
+PREVIEW_SANITIZER_VERSION = "strip-aud-v2"
+```
+
+Khi render preview, ghi thêm file version:
+
+```python
+version_path.write_text(PREVIEW_SANITIZER_VERSION, encoding="utf-8")
+```
+
+Khi serve preview, chỉ dùng cache nếu version khớp. Nếu thiếu file version hoặc version
+cũ, backend render lại preview bằng code đã strip AUD.
+
+Patch mẫu `solution/defense.patch` đã được viết theo hướng final defense: vừa strip AUD,
+vừa tránh dùng lại stale preview cache.
+
+### Attack 3: thử lại sau Defense 2
+
+Sau Defense 2, attacker vẫn có thể gọi các endpoint public:
+
+```bash
+curl http://127.0.0.1:8000/api/cases
+curl http://127.0.0.1:8000/share/<share_id>
+curl http://127.0.0.1:8000/api/share/<share_id>/manifest.json
+```
+
+Các endpoint này vẫn có thể lộ `case id`, `share id`, camera/source và đường dẫn
+preview. Đây là dữ liệu public của sản phẩm, không phải lỗi. Điều quan trọng là những
+dữ liệu đó không còn đủ để khôi phục flag, vì preview đã bị strip AUD.
+
+Attacker tải lại preview:
+
+```bash
+curl -L -o preview_after_defense2.h265 http://127.0.0.1:8000/api/cases/flag_1710000000_abcd1234/redacted-preview.h265
+```
+
+Preview vẫn nên là HEVC hợp lệ:
+
+```bash
+ffprobe -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 preview_after_defense2.h265
+```
+
+Nhưng số AUD NAL type 35 phải bằng `0`:
+
+```bash
+python -c "from pathlib import Path; from solution.exploit import find_nals,nal_type; data=Path('preview_after_defense2.h265').read_bytes(); print(sum(1 for n in find_nals(data) if nal_type(n)==35))"
+```
+
+Kết quả đúng:
+
+```text
+0
+```
+
+Lúc này chạy exploit phải thất bại:
+
+```powershell
+python solution/exploit.py http://127.0.0.1:8000 --id flag_1710000000_abcd1234
+echo $LASTEXITCODE
+```
+
+Nếu `$LASTEXITCODE` là `2`, nghĩa là exploit đã chạy nhưng không tìm được marker hợp lệ
+trong preview public.
+
+### Attack 4: thử bypass bằng `/api/read`
+
+Attacker không có `operator token`, nên thử đọc marker trực tiếp phải thất bại:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/read ^
+  -H "Content-Type: application/json" ^
+  -d "{\"id\":\"flag_1710000000_abcd1234\",\"token\":\"wrong-token\"}"
+```
+
+Kết quả đúng là request bị từ chối, ví dụ `403` hoặc JSON báo `forbidden`. Nếu route
+này trả marker khi token sai thì đó là lỗi khác, không liên quan tới stego preview.
+
+### Kết luận vòng lặp
+
+Bản defense đạt yêu cầu khi có đủ bốn điều kiện:
+
+- Service vẫn sống: `checker check` trả `OK`.
+- Luồng hợp lệ vẫn sống: `checker put/get` đọc lại đúng flag khi có token.
+- Attack sau Defense 1 được phân tích: stale cache có thể vẫn leak.
+- Defense 2 xử lý được phần còn sót: cache cũ bị invalidate, public preview không còn
+  AUD type 35 và exploit không lấy được flag.
+
+## 10. Vì sao không nên vá bằng cách khác
 
 Không nên chỉ đổi thuật toán encode phức tạp hơn, ví dụ tăng decoy, đổi XOR
 mask hoặc đổi Manchester. Các cách đó chỉ trì hoãn attacker, vì nếu preview vẫn
@@ -300,7 +446,7 @@ Không nên yêu cầu token cho preview nếu kịch bản sản phẩm cần p
 preview. Trong thực tế có thể làm vậy, nhưng với bài này defense đẹp hơn là giữ
 preview public và loại bỏ đúng dữ liệu nhạy cảm khỏi preview.
 
-## 10. Defense tốt hơn trong thực tế
+## 11. Defense tốt hơn trong thực tế
 
 Bản vá strip AUD là đủ cho bài CTF. Trong sản phẩm thật, nên làm thêm:
 
