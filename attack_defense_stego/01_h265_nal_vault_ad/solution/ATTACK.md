@@ -818,7 +818,7 @@ Nếu còn type `35`, `39` hoặc `40`, dùng lại script thủ công ở hư�
 
 Điểm quan trọng của hướng này là attacker không cần tìm bug mới. Attacker chỉ tận dụng file public cũ mà service vẫn trả.
 
-## Hướng 9 - Trinh Sát Qua Share Và Manifest
+## Trinh Sát 1 - Share Và Manifest
 
 ### Khi Nào Dùng?
 
@@ -842,7 +842,7 @@ Các endpoint này có thể làm lộ:
 - thời điểm tạo preview
 - loại artifact public
 
-### Cách Dùng Để Lấy Cờ Gián Tiếp
+### Cách Nối Chuỗi Để Lấy Cờ Gián Tiếp
 
 Share và manifest **không phải nơi chứa flag trực tiếp**. Chúng chỉ nguy hiểm khi defender đã vá một phần, ví dụ ẩn `/api/cases`, nhưng lại quên rằng share/manifest vẫn làm lộ `case_id` và `preview_url`.
 
@@ -873,10 +873,10 @@ Kết luận cho hướng này:
 
 ```text
 Share/manifest không lấy cờ một mình.
-Share/manifest lấy cờ gián tiếp nếu chúng còn dẫn tới preview đang hở AUD/SEI hoặc cache cũ.
+Share/manifest chỉ đáng giữ trong writeup vì chúng giúp tìm `case_id` và `preview_url` khi các endpoint khác đã bị vá.
 ```
 
-## Hướng 10 - Trinh Sát Qua Nhật Ký Và Hàng Đợi Preview
+## Trinh Sát 2 - Nhật Ký Và Hàng Đợi Preview
 
 ### Khi Nào Dùng?
 
@@ -899,7 +899,7 @@ Nếu public, các endpoint này có thể làm lộ:
 - preview nào đang nằm trong cache
 - thời điểm nên tải lại preview
 
-### Cách Dùng Để Lấy Cờ Gián Tiếp
+### Cách Nối Chuỗi Để Lấy Cờ Gián Tiếp
 
 Audit và preview-jobs cũng **không phải nơi chứa flag trực tiếp**. Điểm nguy hiểm là chúng có thể làm lộ case nào vừa được checker đặt flag, case nào vừa render preview, hoặc preview nào đang có trong cache.
 
@@ -928,7 +928,7 @@ Audit/preview-jobs là hướng chọn mục tiêu.
 Chúng chỉ giúp lấy cờ gián tiếp khi preview hoặc cache vẫn còn lỗi thật.
 ```
 
-## Hướng 11 - Kiểm Tra Lỗi Phân Quyền Ở Route Riêng Tư
+## Kiểm Tra Nhanh - Route Riêng Tư
 
 ### Khi Nào Dùng?
 
