@@ -36,6 +36,44 @@ def http_json(url: str, method: str = "GET", body: dict | None = None, timeout: 
         return json.loads(resp.read().decode("utf-8"))
 
 
+def http_bytes(url: str, timeout: int = 5) -> bytes:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        return resp.read()
+
+
+def find_nals(data: bytes):
+    starts = []
+    i = 0
+    while i < len(data) - 3:
+        if data[i:i + 4] == b"\x00\x00\x00\x01":
+            starts.append((i, 4))
+            i += 4
+        elif data[i:i + 3] == b"\x00\x00\x01":
+            starts.append((i, 3))
+            i += 3
+        else:
+            i += 1
+
+    for idx, (start, sc_len) in enumerate(starts):
+        end = starts[idx + 1][0] if idx + 1 < len(starts) else len(data)
+        nal = data[start + sc_len:end]
+        if nal:
+            yield nal
+
+
+def nal_type(nal: bytes) -> int:
+    if len(nal) < 2:
+        return -1
+    return (nal[0] >> 1) & 0x3F
+
+
+def preview_looks_hevc(data: bytes) -> bool:
+    nal_types = {nal_type(nal) for nal in find_nals(data)}
+    has_vcl = any(0 <= current <= 31 for current in nal_types)
+    has_parameter_set = any(current in nal_types for current in (32, 33, 34))
+    return has_vcl and has_parameter_set
+
+
 def deterministic_token(flag_id: str) -> str:
     return hashlib.sha256(f"h265-ad-checker-token:{flag_id}".encode("utf-8")).hexdigest()[:32]
 
@@ -69,6 +107,27 @@ def cmd_check(args) -> int:
     read = http_json(f"{url}/api/read", "POST", {"id": item_id, "token": token})
     if read.get("secret") != secret:
         return cquit(MUMBLE, "MUMBLE", "read endpoint returned a different marker")
+
+    cases = http_json(f"{url}/api/cases")
+    items = cases.get("items")
+    if not cases.get("ok") or not isinstance(items, list):
+        return cquit(MUMBLE, "MUMBLE", "cases endpoint returned invalid data")
+
+    public_case = next((item for item in items if item.get("id") == item_id), None)
+    if not public_case:
+        return cquit(MUMBLE, "MUMBLE", "stored case is missing from public case index")
+
+    preview_url = public_case.get("preview_url")
+    if not isinstance(preview_url, str) or not preview_url.startswith("/api/cases/"):
+        return cquit(MUMBLE, "MUMBLE", "public case has invalid preview url")
+
+    preview = http_bytes(f"{url}{preview_url}")
+    if not preview_looks_hevc(preview):
+        return cquit(MUMBLE, "MUMBLE", "preview endpoint did not return a valid HEVC Annex-B stream")
+
+    jobs = http_json(f"{url}/api/preview-jobs")
+    if not jobs.get("ok") or not isinstance(jobs.get("jobs"), list):
+        return cquit(MUMBLE, "MUMBLE", "preview job endpoint returned invalid data")
 
     return cquit(OK, "OK")
 

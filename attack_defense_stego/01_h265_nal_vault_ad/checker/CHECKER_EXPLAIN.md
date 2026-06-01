@@ -44,11 +44,19 @@ python checker.py check 127.0.0.1 8000
 ```
 
 Checker gọi `/health`, tạo một marker tạm, gọi `/api/store`, rồi gọi `/api/read`
-với đúng token. Nếu marker đọc ra trùng với marker đã đặt thì service được xem
-là còn hoạt động.
+với đúng token. Nếu marker đọc ra trùng với marker đã đặt thì luồng lưu/đọc hợp lệ
+vẫn hoạt động.
 
-Checker không bắt buộc kiểm tra dashboard `/`, nhưng dashboard vẫn có trong
-service để người chơi tương tác bằng trình duyệt.
+Sau đó checker kiểm tra thêm các chức năng public mà service phải giữ:
+
+- `/api/cases` phải trả danh sách case hợp lệ và có case vừa tạo.
+- `preview_url` của case vừa tạo phải tải được.
+- Preview tải về phải giống một HEVC Annex-B stream hợp lệ, tức có NAL chứa frame
+  và NAL parameter set như VPS/SPS/PPS.
+- `/api/preview-jobs` phải trả danh sách job đúng định dạng.
+
+Checker không giải mã AUD/SEI và không tìm flag trong preview. Việc khai thác nằm
+ở `solution/exploit.py`, không nằm trong checker.
 
 ### `put`
 
