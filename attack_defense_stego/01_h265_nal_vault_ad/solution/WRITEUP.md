@@ -1,9 +1,22 @@
 # H265 Evidence Portal AD - Writeup
 
-Writeup đã được tách thành hai file riêng:
+Writeup đã được tách theo từng vòng attack-defense:
 
-- `solution/ATTACK.md`: cách khai thác redacted preview `.h265`, parse AUD NAL và lấy flag.
-- `solution/DEFENSE.md`: cách vá preview, ảnh chụp màn hình cần có, và cách chứng minh checker vẫn OK.
+- `solution/ATTACK.md`: mục lục phần attack.
+- `solution/DEFENSE.md`: mục lục phần defense.
+- `solution/ATTACK_ROUND_1.md`: khai thác AUD leak trong public redacted preview.
+- `solution/DEFENSE_ROUND_1.md`: strip AUD NAL type 35 khỏi preview mới.
+- `solution/ATTACK_ROUND_2.md`: khai thác stale preview cache sau khi vá lần 1.
+- `solution/DEFENSE_ROUND_2.md`: invalidate cache bằng sanitizer version và kiểm tra lại.
+
+Luồng đọc khuyến nghị:
+
+```text
+ATTACK_ROUND_1.md
+-> DEFENSE_ROUND_1.md
+-> ATTACK_ROUND_2.md
+-> DEFENSE_ROUND_2.md
+```
 
 ## Tóm tắt lỗi
 
