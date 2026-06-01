@@ -261,20 +261,3 @@ solution/defense.patch
 ```
 
 Patch này sửa đúng các vị trí trên.
-
-## 8. Cách Hiểu Ngắn Gọn
-
-Không nên nghĩ:
-
-```text
-AUD leak -> xóa AUD là xong.
-```
-
-Nên nghĩ:
-
-```text
-Preview public đang copy dữ liệu từ file private.
-Vậy phải định nghĩa rõ loại dữ liệu nào được phép public.
-Những gì không nằm trong danh sách cho phép thì bỏ.
-File public cũ sinh bởi logic lỗi cũng phải bỏ hoặc render lại.
-```
