@@ -331,12 +331,6 @@ AUD bit count: 2978
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
-Lệnh tự động tương đương:
-
-```powershell
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector aud
-```
-
 ### Nếu Thất Bại Thì Hiểu Sao?
 
 - Không còn AUD: defender đã xóa AUD type `35` khỏi preview.
@@ -513,12 +507,6 @@ Kết quả thành công:
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
-Lệnh tự động tương đương:
-
-```powershell
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector sei
-```
-
 ### Khi Nào Hướng Này Hữu Ích?
 
 Hướng SEI rất hữu ích khi defender chỉ vá kiểu:
@@ -568,11 +556,7 @@ Kiểm tra file cũ còn AUD hoặc SEI không:
 python -c "from pathlib import Path; import sys; sys.path.insert(0,'solution'); from exploit import find_nals,nal_type; data=Path('stale_preview.h265').read_bytes(); print({t:sum(1 for n in find_nals(data) if nal_type(n)==t) for t in (35,39,40)})"
 ```
 
-Nếu còn type `35`, `39` hoặc `40`, dùng lại script thủ công ở hướng AUD hoặc SEI. Với bản tự động:
-
-```powershell
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector auto
-```
+Nếu còn type `35`, `39` hoặc `40`, dùng lại script thủ công ở hướng AUD hoặc SEI để tách cờ từ file cache cũ.
 
 Điểm quan trọng của hướng này là attacker không cần tìm bug mới. Attacker chỉ tận dụng file public cũ mà service vẫn trả.
 
@@ -736,37 +720,6 @@ Nói gọn:
 Các endpoint trinh sát chỉ là đường tìm mục tiêu.
 Muốn ra flag, cuối cùng vẫn cần một lỗi thật còn sống: AUD leak, SEI leak, cache cũ, hoặc private route hở.
 ```
-
-## Khai Thác Tự Động
-
-Sau khi hiểu cách làm tay, có thể dùng script tự động có sẵn để tiết kiệm thời gian.
-
-Nếu đã biết `case_id`:
-
-```powershell
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector auto
-```
-
-Nếu chưa biết `case_id`, script sẽ gọi `/api/cases` để lấy danh sách:
-
-```powershell
-python solution/exploit.py http://127.0.0.1:8000 --vector auto
-```
-
-Chạy riêng từng hướng:
-
-```powershell
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector aud
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector sei
-```
-
-Cách đọc kết quả:
-
-- `aud` thành công: preview còn AUD leak.
-- `aud` thất bại nhưng `sei` thành công: defender chỉ vá AUD, SEI vẫn hở.
-- cả hai thất bại nhưng file cũ còn AUD/SEI: lỗi nằm ở cache.
-- cả hai thất bại và preview không còn AUD/SEI: đường preview đã được làm sạch tốt hơn.
-- các endpoint trinh sát còn public nhưng AUD/SEI/cache đều sạch: chưa đủ để lấy flag.
 
 ## Kết Luận
 
