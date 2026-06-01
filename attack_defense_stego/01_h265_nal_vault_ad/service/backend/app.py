@@ -14,6 +14,7 @@ from stego import StegoError, embed_secret, extract_secret, find_nals, nal_type
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 EVIDENCE_DIR = DATA_DIR / "evidence"
+PREVIEW_DIR = DATA_DIR / "previews"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 SQLITE_FILE = DATA_DIR / "evidence.db"
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
@@ -22,6 +23,7 @@ SHARE_RE = re.compile(r"^[a-f0-9]{16}$")
 app = Flask(__name__)
 app.secret_key = os.environ.get("APP_SECRET", "h265-evidence-portal-dev-secret")
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
 
 
 OPERATORS = {
@@ -503,6 +505,18 @@ def _init_db() -> None:
                     )
                     """
                 )
+                conn.execute(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS preview_jobs (
+                        id {id_type},
+                        case_id TEXT NOT NULL UNIQUE,
+                        status TEXT NOT NULL,
+                        attempts INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL,
+                        error TEXT NOT NULL
+                    )
+                    """
+                )
                 conn.commit()
                 return
         except Exception as exc:
@@ -550,6 +564,53 @@ def _save_meta(meta: dict) -> None:
                 ),
             )
         conn.commit()
+
+
+def _enqueue_preview_job(item_id: str) -> None:
+    now = int(time.time())
+    with _connect() as conn:
+        _execute(
+            conn,
+            """
+            INSERT INTO preview_jobs (case_id, status, attempts, updated_at, error)
+            VALUES (?, 'queued', 0, ?, '')
+            ON CONFLICT(case_id) DO UPDATE SET
+                status='queued',
+                updated_at=excluded.updated_at,
+                error=''
+            """,
+            (item_id, now),
+        )
+        conn.commit()
+
+
+def _set_preview_job(item_id: str, status: str, error: str = "") -> None:
+    now = int(time.time())
+    with _connect() as conn:
+        _execute(
+            conn,
+            """
+            INSERT INTO preview_jobs (case_id, status, attempts, updated_at, error)
+            VALUES (?, ?, 1, ?, ?)
+            ON CONFLICT(case_id) DO UPDATE SET
+                status=excluded.status,
+                attempts=preview_jobs.attempts + 1,
+                updated_at=excluded.updated_at,
+                error=excluded.error
+            """,
+            (item_id, status, now, error[:240]),
+        )
+        conn.commit()
+
+
+def _preview_job(item_id: str) -> dict:
+    with _connect() as conn:
+        row = _execute(
+            conn,
+            "SELECT case_id, status, attempts, updated_at, error FROM preview_jobs WHERE case_id = ?",
+            (item_id,),
+        ).fetchone()
+    return dict(row) if row else {"case_id": item_id, "status": "missing", "attempts": 0, "updated_at": 0, "error": ""}
 
 
 def _audit(event: str, item_id: str = "-", **fields) -> None:
@@ -609,6 +670,7 @@ def _public_case(item_id: str, data: dict) -> dict:
     share_id = data.get("share_id") or _share_id(item_id, data.get("token_hash", ""))
     source = data.get("source", "unknown")
     camera = CAMERAS.get(source, {"name": source, "zone": "unknown", "codec": "HEVC/H.265"})
+    job = _preview_job(item_id)
     return {
         "id": item_id,
         "source": source,
@@ -620,6 +682,7 @@ def _public_case(item_id: str, data: dict) -> dict:
         "share_url": f"/share/{share_id}",
         "manifest_url": f"/api/share/{share_id}/manifest.json",
         "preview_url": f"/api/cases/{item_id}/redacted-preview.h265",
+        "preview_job": job["status"],
         "created_at": data.get("created_at", 0),
         "reviewed_by": data.get("operator", "api-client"),
     }
@@ -640,6 +703,15 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
         # frames, but it also preserves AUD timing metadata carrying the marker.
         preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
+
+
+def _render_preview(item_id: str) -> Path:
+    source_path = EVIDENCE_DIR / f"{item_id}.h265"
+    preview_path = PREVIEW_DIR / f"{item_id}_redacted_preview.h265"
+    bitstream = source_path.read_bytes()
+    preview_path.write_bytes(_preview_bitstream(bitstream))
+    _set_preview_job(item_id, "ready")
+    return preview_path
 
 
 _init_db()
@@ -701,6 +773,16 @@ def audit():
     return jsonify(ok=True, events=_recent_audit())
 
 
+@app.get("/api/preview-jobs")
+def preview_jobs():
+    with _connect() as conn:
+        rows = _execute(
+            conn,
+            "SELECT case_id, status, attempts, updated_at, error FROM preview_jobs ORDER BY updated_at DESC LIMIT 50",
+        ).fetchall()
+    return jsonify(ok=True, jobs=[dict(row) for row in rows])
+
+
 @app.post("/api/store")
 def store_secret():
     body = request.get_json(silent=True) or {}
@@ -740,6 +822,7 @@ def store_secret():
         "evidence_size": len(bitstream),
     }
     _save_meta(meta)
+    _enqueue_preview_job(item_id)
     _audit("case_imported", item_id, source=source, share_id=share_id)
     return jsonify(
         ok=True,
@@ -856,15 +939,21 @@ def redacted_preview(item_id: str):
     if item_id not in _load_meta():
         return jsonify(ok=False, error="not found"), 404
 
-    try:
-        bitstream = (EVIDENCE_DIR / f"{item_id}.h265").read_bytes()
-    except OSError:
-        return jsonify(ok=False, error="missing carrier"), 404
+    preview_path = PREVIEW_DIR / f"{item_id}_redacted_preview.h265"
+    if not preview_path.exists():
+        try:
+            # Local fallback: Docker uses preview-worker, but direct Flask runs still work.
+            preview_path = _render_preview(item_id)
+        except OSError:
+            _set_preview_job(item_id, "failed", "missing carrier")
+            return jsonify(ok=False, error="missing carrier"), 404
+        except Exception as exc:
+            _set_preview_job(item_id, "failed", repr(exc))
+            return jsonify(ok=False, error="preview render failed"), 500
 
-    preview = _preview_bitstream(bitstream)
     _audit("preview_downloaded", item_id)
     return Response(
-        preview,
+        preview_path.read_bytes(),
         mimetype="video/H265",
         headers={"Content-Disposition": f'attachment; filename="{item_id}_redacted_preview.h265"'},
     )

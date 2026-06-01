@@ -17,11 +17,12 @@ token. Marker là dữ liệu nội bộ do hệ thống gắn vào evidence đ�
 chain-of-custody; người dùng bình thường không cần tự nhập marker trên giao diện.
 
 Phiên bản nâng cấp có kiến trúc giống service attack-defense thật hơn:
-`proxy` Nginx phục vụ frontend tĩnh, `backend` Flask xử lý API và H.265, còn
-`postgres` lưu metadata case/audit. Service cũng có thêm operator login, registry
-camera, case share link, manifest public, audit trail và metadata redaction.
-Checker vẫn chỉ dùng API `check/put/get`, còn người tấn công nhìn thấy service
-như một cổng lưu trữ/tra cứu CCTV đã redact.
+`proxy` Nginx phục vụ frontend tĩnh, `backend` Flask xử lý API và H.265,
+`preview-worker` render preview bất đồng bộ, còn `postgres` lưu metadata
+case/audit/job queue. Service cũng có thêm operator login, registry camera, case
+share link, manifest public, audit trail và metadata redaction. Checker vẫn chỉ
+dùng API `check/put/get`, còn người tấn công nhìn thấy service như một cổng lưu
+trữ/tra cứu CCTV đã redact.
 
 Để chia sẻ nhanh với bên thứ ba, portal tạo public redacted preview có thể phát
 như video H.265. Preview dùng luồng CCTV đã giảm chi tiết/redact, nhưng pipeline
@@ -78,6 +79,7 @@ GET  /case/<id>
 GET  /share/<share_id>
 GET  /api/share/<share_id>/manifest.json
 GET  /api/audit
+GET  /api/preview-jobs
 GET  /api/cases/<id>/redacted-preview.h265
 ```
 

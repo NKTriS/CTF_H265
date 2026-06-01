@@ -30,6 +30,24 @@ services:
     pids_limit: 256
     restart: unless-stopped
 
+  preview-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "worker.py"]
+    environment:
+      - DATA_DIR=/data
+      - DATABASE_URL=postgresql://h265:h265@postgres:5432/h265
+      - WORKER_SLEEP=2
+    volumes:
+      - h265_evidence_files:/data
+    depends_on:
+      - postgres
+    cpus: 1
+    mem_limit: 384m
+    pids_limit: 256
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:

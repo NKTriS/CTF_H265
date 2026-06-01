@@ -10,6 +10,7 @@ files:
     - service/backend/Dockerfile
     - service/backend/app.py
     - service/backend/stego.py
+    - service/backend/worker.py
     - service/backend/requirements.txt
     - service/backend/assets/cctv_redacted_template.hevc
     - service/front/index.html

@@ -228,10 +228,15 @@
         <pre id="cameraOut">Loading cameras...</pre>
       </section>
       <section>
-        <h2>Audit Trail</h2>
-        <pre id="auditOut">Loading audit...</pre>
+        <h2>Preview Worker Queue</h2>
+        <pre id="jobOut">Loading preview jobs...</pre>
       </section>
     </div>
+
+    <section class="wide">
+      <h2>Audit Trail</h2>
+      <pre id="auditOut">Loading audit...</pre>
+    </section>
 
     <section class="wide">
       <h2>Public Redacted Shares</h2>
@@ -299,6 +304,7 @@
 
       const cases = await getJson("/api/cases");
       renderCases(cases.data.items || []);
+      document.getElementById("jobOut").textContent = json(await getJson("/api/preview-jobs"));
       document.getElementById("auditOut").textContent = json(await getJson("/api/audit"));
     }
 

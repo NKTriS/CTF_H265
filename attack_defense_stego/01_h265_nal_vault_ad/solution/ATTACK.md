@@ -15,10 +15,11 @@ Có hai luồng cần phân biệt:
   `/api/cases/<id>/redacted-preview.h265` không yêu cầu token.
 
 Ở bản nâng cấp, service không chỉ là API đặt/đọc flag. Nó có operator console,
-camera registry, public share link, manifest và audit trail. Khi deploy bằng
-Docker, frontend tĩnh, backend API và PostgreSQL database cũng được tách thành
-các container riêng. Các lớp này làm kịch bản giống một hệ thống lưu trữ CCTV
-hơn, nhưng bug chính vẫn nằm ở public redacted preview.
+camera registry, public share link, manifest, audit trail và queue render
+preview. Khi deploy bằng Docker, frontend tĩnh, backend API, preview-worker và
+PostgreSQL database cũng được tách thành các container riêng. Các lớp này làm
+kịch bản giống một hệ thống lưu trữ CCTV hơn, nhưng bug chính vẫn nằm ở public
+redacted preview.
 
 Điểm đáng nghi nằm ở preview public. Giao diện nói đây là bản CCTV đã redact,
 vẫn phát được như H.265, nhưng backend giữ lại timing metadata. Với video HEVC,

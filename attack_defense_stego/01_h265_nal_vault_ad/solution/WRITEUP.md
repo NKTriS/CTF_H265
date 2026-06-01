@@ -7,11 +7,12 @@ Writeup đã được tách thành hai file riêng:
 
 ## Bản nâng cấp
 
-Service hiện đã tách thành `proxy` Nginx, `front` tĩnh, `backend` Flask và
-`postgres` database. Bên trên kiến trúc đó có operator console, camera registry,
-public share link, manifest và audit trail. Những lớp này làm bài giống một hệ
-thống CCTV evidence portal thật hơn, nhưng checker vẫn chỉ dùng `check/put/get`
-và lỗi chính vẫn nằm ở public redacted preview.
+Service hiện đã tách thành `proxy` Nginx, `front` tĩnh, `backend` Flask,
+`preview-worker` và `postgres` database. Bên trên kiến trúc đó có operator
+console, camera registry, public share link, manifest, audit trail và queue render
+preview. Những lớp này làm bài giống một hệ thống CCTV evidence portal thật hơn,
+nhưng checker vẫn chỉ dùng `check/put/get` và lỗi chính vẫn nằm ở public redacted
+preview.
 
 ## Tóm tắt lỗi
 
