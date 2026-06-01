@@ -1,52 +1,63 @@
-# H265 Evidence Portal AD - Writeup Defense
+# H265 Evidence Portal AD - Defense Writeup
 
-## 1. Mục tiêu defense
+## Lỗ Hổng Tổng Quát
 
-Defense phải giữ service hoạt động:
+Lỗi của bài là **public preview được tạo từ private H.265 carrier bằng sanitizer không đủ chặt**.
 
-- `checker check` vẫn OK.
-- `checker put/get` vẫn lưu và đọc đúng flag khi có token.
-- Dashboard, `/api/cases`, share link và preview public vẫn tồn tại.
-- Attacker không thể lấy marker từ public preview.
+Raw carrier là dữ liệu nội bộ. Nó có thể chứa:
 
-Vì bug là lỗi thiết kế preview sanitizer, không nên vá từng dấu hiệu như chỉ strip AUD.
-Defense đúng phải xử lý toàn bộ class lỗi:
+- VCL frame.
+- VPS/SPS/PPS.
+- AUD timing metadata.
+- SEI metadata.
+- debug trace.
+- custody marker side-channel.
+- artifact cũ đã render.
+
+Preview public chỉ nên chứa dữ liệu cần thiết để người ngoài xem video đã redact. Nhưng
+service lại copy nhiều NAL từ carrier sang preview, làm lộ side-channel chứa flag.
+
+Vì vậy defense không nên nghĩ theo kiểu:
 
 ```text
-Public preview không được copy metadata/custody side-channel từ private carrier.
+Leak ở AUD thì strip AUD là xong.
 ```
 
-## 2. Vì sao vá hời hợt không đủ
+Cách nghĩ đúng là:
 
-### Chỉ strip AUD
-
-Strip AUD type 35 chặn được exploit đầu tiên, nhưng SEI debug trace type 39 vẫn có thể
-chứa packet marker đã mask. Attacker chuyển từ:
-
-```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_x --vector aud
+```text
+Public artifact phải được tạo theo allowlist dữ liệu an toàn.
+Mọi metadata không cần cho public playback phải bị loại bỏ.
+Artifact cũ sinh bởi sanitizer lỗi phải bị invalidate.
 ```
 
-sang:
+## Những Chỗ Cần Vá
 
-```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_x --vector sei
+### 1. Preview sanitizer
+
+Vị trí cần vá nằm ở hàm tạo preview:
+
+```python
+def _preview_bitstream(bitstream: bytes) -> bytes:
+    preview = bytearray()
+    for nal in find_nals(bitstream):
+        ...
+    return bytes(preview)
 ```
 
-### Chỉ strip AUD và SEI trong code mới
+Bản vulnerable copy gần như toàn bộ NAL sang preview. Đây là nguyên nhân gốc.
 
-Nếu preview cũ đã render trước khi vá, backend có thể vẫn trả file cũ trong cache. Lúc
-đó attacker dùng mode `auto` và vẫn lấy được flag từ artifact cũ.
+Không nên vá bằng denylist kiểu:
 
-### Chỉ yêu cầu token cho preview
+```python
+if nal_type(nal) == 35:
+    continue
+```
 
-Cách này có thể chặn attacker, nhưng làm hỏng kịch bản sản phẩm: redacted preview là
-public artifact để chia sẻ. Trong bài này defense đẹp hơn là giữ preview public nhưng
-làm nó sạch.
+Vì cách này chỉ chặn AUD. Nếu còn SEI/debug trace hoặc metadata khác, attacker vẫn có
+đường khai thác.
 
-## 3. Bản vá đúng bản chất
-
-Thay vì denylist từng NAL nguy hiểm, dùng allowlist NAL an toàn cho preview:
+Nên vá bằng allowlist:
 
 ```python
 SAFE_PREVIEW_NAL_TYPES = set(range(0, 32)) | {32, 33, 34}
@@ -54,13 +65,19 @@ SAFE_PREVIEW_NAL_TYPES = set(range(0, 32)) | {32, 33, 34}
 
 Ý nghĩa:
 
-- Giữ VCL frame `0..31`.
-- Giữ VPS/SPS/PPS `32, 33, 34` để bitstream vẫn decode được.
-- Loại bỏ AUD `35`.
-- Loại bỏ SEI prefix/suffix `39, 40`.
-- Loại bỏ metadata phụ khác nếu có.
+- `0..31`: VCL frame, giữ nội dung video đã redact.
+- `32`: VPS.
+- `33`: SPS.
+- `34`: PPS.
 
-Hàm preview:
+Các loại không nằm trong allowlist bị bỏ:
+
+- `35`: AUD.
+- `39/40`: SEI prefix/suffix.
+- metadata phụ khác.
+- debug/custody side-channel.
+
+Code vá:
 
 ```python
 def _preview_bitstream(bitstream: bytes) -> bytes:
@@ -72,15 +89,38 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
     return bytes(preview)
 ```
 
-## 4. Chống stale preview cache
+Điểm quan trọng: allowlist an toàn hơn denylist vì defender không cần đoán hết mọi loại
+metadata nguy hiểm.
 
-Thêm version cho sanitizer:
+### 2. SEI/debug trace
+
+Trong bài này, carrier có SEI debug trace chứa packet đã mask:
+
+```text
+H5DBG || length || masked_packet
+```
+
+Nếu chỉ strip AUD, SEI vẫn leak. Vì vậy defense phải loại cả SEI khỏi preview public.
+
+Allowlist ở trên đã xử lý việc này vì type `39/40` không được giữ lại.
+
+### 3. Preview cache
+
+Ngay cả khi code sanitizer đã đúng, preview cũ có thể vẫn nằm trong cache:
+
+```text
+PREVIEW_DIR/<case_id>_redacted_preview.h265
+```
+
+Nếu backend chỉ check `preview_path.exists()`, nó sẽ trả file cũ sinh bởi sanitizer lỗi.
+
+Cần thêm version cho sanitizer:
 
 ```python
 PREVIEW_SANITIZER_VERSION = "strip-metadata-v3"
 ```
 
-Khi render preview, ghi version cạnh file preview:
+Khi render preview, ghi version:
 
 ```python
 version_path.write_text(PREVIEW_SANITIZER_VERSION, encoding="utf-8")
@@ -100,110 +140,154 @@ def _preview_cache_fresh(item_id: str) -> bool:
         return False
 ```
 
-Route preview đổi thành:
+Route preview cần đổi từ:
+
+```python
+if not preview_path.exists():
+    preview_path = _render_preview(item_id)
+```
+
+sang:
 
 ```python
 if not _preview_cache_fresh(item_id):
     preview_path = _render_preview(item_id)
 ```
 
-Như vậy preview cũ thiếu/sai version sẽ bị render lại bằng sanitizer mới.
+Như vậy cache cũ thiếu/sai version sẽ tự bị render lại.
 
-## 5. Áp dụng patch
+### 4. Public recon endpoints
 
-Patch mẫu:
+Các endpoint sau có thể vẫn public:
+
+```text
+/api/cases
+/share/<share_id>
+/api/share/<share_id>/manifest.json
+/api/audit
+/api/preview-jobs
+```
+
+Không nhất thiết phải tắt hết chúng, vì đó là chức năng sản phẩm. Nhưng cần đảm bảo chúng
+không trả dữ liệu nhạy cảm như:
+
+- token
+- raw carrier path
+- marker
+- debug packet
+- internal storage path
+- signed/private URL
+
+Chúng có thể trả `case id` và preview URL, miễn là preview đã được sanitize đúng.
+
+### 5. Auth boundary
+
+Các route private vẫn phải yêu cầu token:
+
+```text
+POST /api/read
+POST /api/carrier
+```
+
+Không nên "vá" bằng cách tắt route private hoặc làm checker không đọc được flag. Checker
+cần `put/get` hoạt động để bài A/D hợp lệ.
+
+## Patch Mẫu
+
+Patch nộp cuối nằm ở:
+
+```bash
+solution/defense.patch
+```
+
+Patch này gồm hai ý chính:
+
+- Allowlist NAL an toàn khi tạo preview.
+- Sanitizer version để invalidate preview cache cũ.
+
+Áp dụng:
 
 ```bash
 git apply --check solution/defense.patch
 git apply solution/defense.patch
 ```
 
-Rebuild:
+## Tiêu Chí Kiểm Tra Sau Vá
 
-```bash
-cd service
-docker compose down
-docker compose up --build -d
-```
+Sau khi vá, cần kiểm tra theo các tiêu chí sau.
 
-## 6. Kiểm tra service không hỏng
-
-Health:
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Checker:
-
-```bash
-python checker/checker.py check 127.0.0.1 8000
-python checker/checker.py put 127.0.0.1 8000 'blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}'
-python checker/checker.py get 127.0.0.1 8000 '{"id":"flag_x","token":"token_x"}' 'blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}'
-```
-
-`check` và `get` phải trả `OK`.
-
-## 7. Kiểm tra attacker không còn đường public
-
-Tải preview sau vá:
-
-```bash
-curl -L -o preview_after_patch.h265 http://127.0.0.1:8000/api/cases/flag_x/redacted-preview.h265
-```
-
-Preview vẫn phải là HEVC:
-
-```bash
-ffprobe -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 preview_after_patch.h265
-```
-
-Đếm NAL nguy hiểm:
-
-```bash
-python -c "from pathlib import Path; from solution.exploit import find_nals,nal_type; data=Path('preview_after_patch.h265').read_bytes(); print({t:sum(1 for n in find_nals(data) if nal_type(n)==t) for t in (35,39,40)})"
-```
-
-Kết quả mong đợi:
+Service hợp lệ vẫn hoạt động:
 
 ```text
-{35: 0, 39: 0, 40: 0}
+checker check -> OK
+checker put   -> lưu được flag
+checker get   -> đọc lại đúng flag khi có token
 ```
 
-Thử exploit:
+Preview public vẫn dùng được:
 
-```powershell
-python solution/exploit.py http://127.0.0.1:8000 --id flag_x --vector auto
-echo $LASTEXITCODE
+```text
+ffprobe preview_after_patch.h265 -> codec_name=hevc
 ```
 
-Kết quả đúng là không in flag và exit code khác `0`.
+Preview không còn NAL nguy hiểm:
 
-## 8. Thử bypass `/api/read`
+```text
+AUD type 35 = 0
+SEI type 39 = 0
+SEI type 40 = 0
+```
 
-Token sai phải bị từ chối:
+Exploit public thất bại:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/read ^
-  -H "Content-Type: application/json" ^
-  -d "{\"id\":\"flag_x\",\"token\":\"wrong-token\"}"
+python solution/exploit.py http://127.0.0.1:8000 --id <case_id> --vector auto
 ```
 
-Kết quả đúng là `403` hoặc JSON `forbidden`.
+Route private vẫn chặn token sai:
 
-## 9. Kết luận defense
+```text
+POST /api/read với token sai -> 403/forbidden
+POST /api/carrier với token sai -> 403/forbidden
+```
 
-Bản vá đạt yêu cầu khi:
+## Vì Sao Đây Là Defense Đúng
 
-- Preview public vẫn dùng được.
-- Preview chỉ giữ NAL cần thiết để decode.
-- AUD/SEI/debug metadata không còn xuất hiện trong public preview.
-- Cache cũ bị invalidate bằng sanitizer version.
-- Checker vẫn đặt và đọc flag động bình thường.
+Defense này xử lý root bug thay vì xử lý từng biểu hiện.
+
+Nếu chỉ strip AUD:
+
+```text
+SEI vẫn leak.
+```
+
+Nếu chỉ strip AUD/SEI:
+
+```text
+cache cũ vẫn leak.
+```
+
+Nếu chỉ yêu cầu token cho preview:
+
+```text
+làm hỏng chức năng public redacted preview.
+```
+
+Allowlist NAL + cache version giải quyết đúng bản chất:
+
+```text
+Preview public chỉ giữ dữ liệu cần để decode video.
+Metadata/custody/debug side-channel không được public.
+Artifact cũ sinh bởi sanitizer lỗi không được tái sử dụng.
+```
+
+## Gợi Ý Defense Thực Tế Hơn
 
 Trong sản phẩm thật, nên làm thêm:
 
 - Tạo preview bằng transcoder sạch thay vì copy NAL từ private carrier.
-- Purge CDN/object storage cache.
-- Log và rate limit endpoint preview.
-- Rotate marker/flag đã bị lộ trước khi vá.
+- Purge CDN/object storage cache sau khi vá sanitizer.
+- Log download preview bất thường.
+- Rate limit endpoint preview.
+- Rotate marker/flag đã lộ trước khi vá.
+- Thêm regression test để đảm bảo preview không còn AUD/SEI/debug magic như `H5AD`, `H5DBG`.

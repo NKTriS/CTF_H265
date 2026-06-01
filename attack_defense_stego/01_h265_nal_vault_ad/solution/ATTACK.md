@@ -1,200 +1,272 @@
-# H265 Evidence Portal AD - Writeup Attack
+# H265 Evidence Portal AD - Attack Writeup
 
-## 1. Root bug
+## Root Bug
 
-Bug lớn của bài không phải là một endpoint quên check token. `/api/read` và `/api/carrier`
-vẫn cần `operator token`.
+Lỗi lớn của bài là **public preview sanitizer bị sai trust boundary**.
 
-Bug nằm ở thiết kế public preview:
+Service có raw H.265 carrier chứa custody marker nội bộ. Raw carrier là dữ liệu private,
+chỉ luồng có `operator token` mới được đọc qua `/api/carrier` hoặc `/api/read`.
+Nhưng public preview lại được tạo bằng cách copy NAL từ raw carrier sang
+`redacted-preview.h265`.
 
-```text
-Backend tạo redacted-preview.h265 bằng cách copy lại NAL từ raw evidence carrier.
-Nó chỉ nghĩ tới phần hình ảnh đã redact, nhưng quên rằng H.265 còn nhiều NAL metadata.
-```
-
-Trong hệ thống này, custody marker nội bộ được nhúng vào raw carrier để phục vụ kiểm tra
-chuỗi bằng chứng. Khi preview public copy metadata từ carrier, marker bị lộ qua nhiều
-đường khác nhau. Đây là một bug lớn kiểu attack-defense thật: defender vá một dấu hiệu
-thì attacker vẫn có thể thử các đường leak khác sinh ra từ cùng một sai lầm thiết kế.
-
-## 2. Recon public surface
-
-Attacker chỉ có URL service:
+Nói ngắn gọn:
 
 ```text
-http://127.0.0.1:8000/
+Private carrier -> sanitize hời hợt -> public preview
 ```
 
-Mở dashboard:
+Sai lầm nằm ở chữ "hời hợt". Backend chỉ quan tâm nội dung hình ảnh đã redact, nhưng H.265
+không chỉ có frame hình ảnh. Bitstream còn có AUD, SEI, parameter set, metadata, debug
+trace và các side-channel khác. Nếu public preview copy những NAL này, flag có thể bị lộ
+dù `/api/read` vẫn check token đúng.
+
+## Bề Mặt Recon
+
+Attacker không có token. Những gì attacker có là web public:
 
 ```text
 http://127.0.0.1:8000/
 ```
 
-![Dashboard H265 Evidence Portal](screenshots/attack-01-dashboard.png)
+Các endpoint public cần kiểm tra:
 
-Endpoint public quan trọng:
+```text
+GET /
+GET /api/cases
+GET /case/<id>
+GET /share/<share_id>
+GET /api/share/<share_id>/manifest.json
+GET /api/cases/<id>/redacted-preview.h265
+GET /api/audit
+GET /api/preview-jobs
+```
+
+Endpoint quan trọng nhất là:
 
 ```bash
 curl http://127.0.0.1:8000/api/cases
 ```
 
-![Public cases endpoint làm lộ case id và preview URL](screenshots/attack-02-cases.png)
+Nó cho attacker `case id` và `preview_url`. `case id` rất quan trọng vì service dùng nó
+làm seed cho một số mask/cadence.
 
-Response có `id`, `preview_url`, `share_url`, `manifest_url`. Attacker không có token,
-nhưng có thể tải public preview:
+Tải preview:
 
 ```bash
-curl.exe -L -o preview.h265 http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/redacted-preview.h265
+curl -L -o preview.h265 http://127.0.0.1:8000/api/cases/<id>/redacted-preview.h265
 ```
 
-Kiểm tra file:
+Kiểm tra đây là H.265 thật:
 
 ```bash
 ffprobe -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 preview.h265
 ```
 
-![Preview public là HEVC bitstream hợp lệ](screenshots/attack-03-ffprobe-preview.png)
+Nếu ra `codec_name=hevc`, hướng đúng là parse HEVC Annex-B NAL.
 
-Kết quả:
+## Hướng 1: AUD Timing Channel
 
-```text
-codec_name=hevc
-width=640
-height=360
-```
+Đây là hướng rõ nhất.
 
-Vậy hướng khai thác đúng là parse H.265 Annex-B, không phải tìm flag bằng `strings`.
-
-## 3. Hướng khai thác 1: AUD timing channel
-
-HEVC Annex-B dùng start code để tách NAL:
-
-```text
-00 00 01
-00 00 00 01
-```
-
-Với HEVC:
+Trong H.265, `nal_unit_type` được lấy như sau:
 
 ```python
 nal_unit_type = (nal[0] >> 1) & 0x3f
 ```
 
-AUD có `nal_unit_type = 35`. Service giấu marker vào bit thấp của `primary_pic_type`:
+AUD là NAL type `35`. Service giấu bit vào:
 
 ```python
 primary_pic_type = (nal[2] >> 5) & 0x07
-raw_bit = primary_pic_type & 1
+bit = primary_pic_type & 1
 ```
 
-Marker không được ghi thẳng. Nó được đóng gói:
+Packet marker:
 
 ```text
-H5AD || 2-byte length || marker || crc32(marker)
+H5AD || 2-byte length || flag || crc32(flag)
 ```
 
-Sau đó:
+Trước khi nhúng vào AUD, packet bị xử lý:
 
 ```text
 packet bits
 -> XOR keystream theo case id
 -> Manchester encode
--> chèn 1-3 AUD giả trước mỗi bit thật
+-> chèn AUD giả theo cadence
 -> ghi bit thật vào primary_pic_type & 1
 ```
 
-Vì `case id` public trong `/api/cases`, attacker sinh lại được cadence và mask.
-
-Chạy exploit bằng AUD:
-
-```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector aud
-```
-
-![Exploit khôi phục được custody marker/flag](screenshots/attack-05-exploit-flag.png)
-
-Output:
+Vì `case id` public, attacker sinh lại được cadence và mask. Hướng khai thác:
 
 ```text
-blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
+preview.h265
+-> tách NAL
+-> lọc type 35
+-> lấy primary_pic_type & 1
+-> bỏ decoy theo cadence
+-> Manchester decode
+-> XOR ngược
+-> parse H5AD packet
 ```
 
-## 4. Hướng khai thác 2: SEI debug trace
+Lệnh:
 
-Nếu defender chỉ strip AUD type 35, root bug vẫn chưa hết. Carrier còn có một operator
-trace/debug NAL trong SEI prefix type 39. Trace này không dùng cho `/api/read`, nhưng
-được sinh ra để mô phỏng metadata debug/custody trace hay gặp trong hệ thống xử lý video.
+```bash
+python solution/exploit.py http://127.0.0.1:8000 --id <case_id> --vector aud
+```
 
-SEI trace có dạng:
+## Hướng 2: SEI Debug Trace
+
+Nếu đội phòng thủ chỉ strip AUD, attacker không nên dừng lại. Root bug vẫn là preview
+copy metadata từ private carrier. Metadata khác có thể vẫn leak.
+
+Bài này có SEI prefix NAL type `39` chứa operator debug trace:
 
 ```text
 H5DBG || 2-byte length || xor(packet, SHA256("h265-ad-sei-trace:" || case_id || counter))
 ```
 
-Vì preview sanitizer copy metadata, SEI cũng đi ra public preview. Attacker chỉ cần lọc
-NAL type 39/40, tìm `H5DBG`, XOR lại bằng `case id`, rồi parse packet `H5AD`.
+SEI không được `/api/read` sử dụng. Nó mô phỏng debug/custody trace hay gặp trong pipeline
+xử lý video. Nhưng nếu preview sanitizer copy SEI sang public preview, attacker vẫn lấy
+được packet.
 
-Chạy exploit bằng SEI:
+Hướng khai thác:
 
-```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector sei
+```text
+preview.h265
+-> lọc NAL type 39/40
+-> tìm magic H5DBG
+-> lấy blob đã mask
+-> XOR ngược bằng case id
+-> parse H5AD packet
 ```
 
-Nếu AUD đã bị strip nhưng SEI vẫn còn, lệnh này vẫn lấy được flag.
+Lệnh:
 
-## 5. Hướng khai thác 3: stale preview artifact
+```bash
+python solution/exploit.py http://127.0.0.1:8000 --id <case_id> --vector sei
+```
 
-Ngay cả khi defender đã sửa code để strip AUD và SEI, attacker vẫn nên thử lại preview
-cũ. Backend cache preview trên disk:
+Ý nghĩa trong A/D: nếu defender vá kiểu "thấy AUD leak thì strip AUD", attacker chuyển
+sang SEI và vẫn ăn flag.
+
+## Hướng 3: Stale Preview Cache
+
+Ngay cả khi defender sửa code đúng hơn, attacker vẫn nên thử artifact cũ.
+
+Service cache preview trên disk:
 
 ```python
-preview_path = PREVIEW_DIR / f"{item_id}_redacted_preview.h265"
-if not preview_path.exists():
-    preview_path = _render_preview(item_id)
+PREVIEW_DIR / f"{item_id}_redacted_preview.h265"
 ```
 
-Nếu preview đã được render trước khi vá, file cũ vẫn có thể nằm trong cache. Khi attacker
-gọi lại URL public, service trả artifact cũ thay vì render lại bằng sanitizer mới.
+Nếu preview được render trước khi vá, file cũ có thể vẫn còn. Backend thấy file tồn tại
+thì trả cache, không render lại bằng sanitizer mới.
 
-Kiểm tra nhanh:
-
-```bash
-curl -L -o stale_preview.h265 http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/redacted-preview.h265
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector auto
-```
-
-Nếu cache cũ còn đó, exploit vẫn có thể lấy flag.
-
-## 6. Exploit tổng hợp
-
-Trong thực chiến, attacker không cần biết trước đội phòng thủ đã vá tới đâu. Dùng mode
-`auto` để thử cả AUD và SEI:
-
-```bash
-python solution/exploit.py http://127.0.0.1:8000
-```
-
-Hoặc chỉ định case id:
-
-```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c
-```
-
-Exploit thành công khi in ra flag động do checker đặt:
+Hướng khai thác:
 
 ```text
-blockChainPTIT{...}
+deploy cũ tạo preview lỗi
+-> defender vá code
+-> preview cache cũ vẫn còn
+-> attacker tải lại URL public
+-> exploit AUD/SEI trên artifact cũ
 ```
 
-## 7. Kết luận attack
+Lệnh:
 
-Đây là một root bug về trust boundary của preview pipeline:
+```bash
+curl -L -o stale_preview.h265 http://127.0.0.1:8000/api/cases/<case_id>/redacted-preview.h265
+python solution/exploit.py http://127.0.0.1:8000 --id <case_id> --vector auto
+```
+
+Đây là hướng rất thực tế trong A/D: vá code nhưng quên cache/CDN/object storage.
+
+## Hướng 4: Manifest Và Share Recon
+
+`/api/cases` không phải nơi public duy nhất. Attacker cũng nên kiểm tra:
 
 ```text
-Public artifact được tạo từ private carrier bằng denylist/sanitize hời hợt.
+/share/<share_id>
+/api/share/<share_id>/manifest.json
 ```
 
-Các hướng AUD, SEI và stale cache chỉ là biểu hiện khác nhau của cùng một lỗi. Defense
-đúng không phải là vá từng pattern, mà là thiết kế lại preview theo allowlist metadata
-an toàn và invalidate toàn bộ artifact cũ.
+Các endpoint này có thể cung cấp:
+
+- `case id`
+- `preview_url`
+- codec
+- loại artifact public
+- camera/source
+- trạng thái preview job
+
+Trong bài hiện tại chúng không trả thẳng flag, nhưng chúng giúp attacker xác định đúng
+case và đúng artifact để khai thác. Nếu defender chỉ ẩn `/api/cases` mà để share/manifest
+public, attacker vẫn có đường recon.
+
+## Hướng 5: Audit Và Preview Job Recon
+
+Các endpoint như audit trail hoặc preview job queue thường bị xem là "không nhạy cảm".
+Nhưng trong A/D, chúng có thể giúp attacker biết:
+
+- case nào mới được checker đặt flag
+- preview nào đã render xong
+- source/camera nào được dùng
+- artifact nào vừa được tải
+- cache có thể tồn tại hay chưa
+
+Vì vậy attacker nên kiểm tra:
+
+```bash
+curl http://127.0.0.1:8000/api/audit
+curl http://127.0.0.1:8000/api/preview-jobs
+```
+
+Nếu các endpoint này public, chúng không nhất thiết là bug lấy flag trực tiếp, nhưng là
+recon tốt để chọn target.
+
+## Hướng 6: Carrier/Auth Boundary
+
+Luồng hợp lệ:
+
+```text
+POST /api/read
+POST /api/carrier
+```
+
+cần `id + token`. Attacker nên thử token sai để xác nhận có bug auth không. Nếu token sai
+mà vẫn đọc được marker hoặc carrier thì đó là bug nghiêm trọng khác.
+
+Trong bài này, auth boundary đúng. Vì vậy hướng chính vẫn là public preview artifact.
+
+## Exploit Tổng Hợp
+
+Exploit hỗ trợ nhiều vector:
+
+```bash
+python solution/exploit.py http://127.0.0.1:8000 --id <case_id> --vector aud
+python solution/exploit.py http://127.0.0.1:8000 --id <case_id> --vector sei
+python solution/exploit.py http://127.0.0.1:8000 --id <case_id> --vector auto
+```
+
+Nếu chưa biết case id:
+
+```bash
+python solution/exploit.py http://127.0.0.1:8000 --vector auto
+```
+
+`auto` sẽ lấy danh sách public case rồi thử các vector đã biết.
+
+## Kết Luận
+
+Đây là một bài về **artifact sanitization bug**, không phải một bug endpoint đơn lẻ.
+
+Các hướng khai thác đều xoay quanh một câu hỏi:
+
+```text
+Public preview còn giữ lại dữ liệu gì từ private carrier?
+```
+
+Miễn là câu trả lời còn là "AUD", "SEI", "debug trace", "cache cũ", hoặc "metadata giúp
+khôi phục marker", attacker vẫn còn đường khai thác.
