@@ -141,11 +141,15 @@ import hashlib
 import struct
 import zlib
 
+# Thay case_id này bằng id lấy được từ /api/cases.
+# File preview.h265 là file tải từ /api/cases/<case_id>/redacted-preview.h265.
 case_id = "flag_1780132060_da66f92c"
 data = Path("preview.h265").read_bytes()
 
 
 def byte_stream(seed: str, label: bytes):
+    # Sinh dòng byte giả ngẫu nhiên nhưng lặp lại được.
+    # Backend cũng sinh theo công thức này, nên attacker chỉ cần biết case_id.
     counter = 0
     seed_bytes = seed.encode()
     while True:
@@ -156,6 +160,9 @@ def byte_stream(seed: str, label: bytes):
 
 
 def find_nals(raw: bytes):
+    # File .h265 dạng Annex-B chia NAL bằng start code:
+    # 00 00 00 01 hoặc 00 00 01.
+    # Hàm này tìm từng start code rồi cắt ra từng NAL.
     starts = []
     i = 0
     while i < len(raw) - 3:
@@ -176,12 +183,15 @@ def find_nals(raw: bytes):
 
 
 def nal_type(nal: bytes) -> int:
+    # Trong H.265, nal_unit_type nằm ở byte đầu tiên:
+    # lấy 6 bit giữa bằng (nal[0] >> 1) & 0x3F.
     if len(nal) < 2:
         return -1
     return (nal[0] >> 1) & 0x3F
 
 
 def bits_to_bytes(bits):
+    # Ghép mỗi 8 bit thành 1 byte để khôi phục packet H5AD.
     out = bytearray()
     for i in range(0, len(bits) - 7, 8):
         value = 0
@@ -192,6 +202,8 @@ def bits_to_bytes(bits):
 
 
 def manchester_decode(bits):
+    # Backend mã Manchester để mỗi bit thật biến thành 2 bit:
+    # 01 là 0, 10 là 1. Cặp khác nghĩa là dữ liệu sai hoặc bị thiếu.
     decoded = []
     for i in range(0, len(bits) - 1, 2):
         pair = bits[i:i + 2]
@@ -205,6 +217,8 @@ def manchester_decode(bits):
 
 
 def xor_bits(bits, seed: str):
+    # Sau khi giải Manchester, bit vẫn bị XOR bằng dòng byte sinh từ case_id.
+    # XOR lần nữa với cùng dòng byte sẽ lấy lại bit gốc.
     stream = byte_stream(seed, b"h265-ad-mask:")
     out = []
     current = 0
@@ -220,8 +234,10 @@ def xor_bits(bits, seed: str):
 
 aud_bits = []
 for nal in find_nals(data):
+    # AUD có nal_type = 35. Các NAL khác không chứa kênh giấu bit này.
     if nal_type(nal) != 35 or len(nal) < 3:
         continue
+    # Bit bị giấu ở bit thấp nhất của primary_pic_type.
     primary_pic_type = (nal[2] >> 5) & 0x07
     aud_bits.append(primary_pic_type & 1)
 
@@ -232,6 +248,8 @@ pos = 0
 cadence = byte_stream(case_id, b"h265-ad-cadence:")
 
 while pos < len(aud_bits):
+    # Backend chèn 1 đến 3 AUD giả trước mỗi bit thật.
+    # Số AUD giả phụ thuộc case_id, nên ta sinh lại cadence để bỏ qua đúng nhịp.
     decoy_count = 1 + (next(cadence) % 3)
 
     for _ in range(decoy_count):
@@ -247,12 +265,15 @@ while pos < len(aud_bits):
     encoded_bits.append(aud_bits[pos])
     pos += 1
 
+# Thứ tự giải ngược là:
+# bỏ AUD giả -> giải Manchester -> XOR ngược -> ghép bit thành packet.
 plain_bits = xor_bits(manchester_decode(encoded_bits), case_id)
 header = bits_to_bytes(plain_bits[:48])
 
 if header[:4] != b"H5AD":
     raise SystemExit("Không thấy packet H5AD. Sai case_id hoặc preview không còn AUD leak.")
 
+# Packet có dạng: H5AD || size 2 byte || flag || crc32(flag).
 size = struct.unpack(">H", header[4:6])[0]
 packet = bits_to_bytes(plain_bits[:(10 + size) * 8])
 flag = packet[6:6 + size]
@@ -260,6 +281,7 @@ crc_expected = struct.unpack(">I", packet[6 + size:10 + size])[0]
 crc_actual = zlib.crc32(flag) & 0xFFFFFFFF
 
 if crc_actual != crc_expected:
+    # CRC giúp biết ta giải đúng chưa. Nếu CRC sai thì bit bị lệch hoặc sai case_id.
     raise SystemExit("CRC sai. Dữ liệu bị thiếu hoặc giải sai.")
 
 print(flag.decode())
@@ -351,11 +373,15 @@ import hashlib
 import struct
 import zlib
 
+# Thay case_id này bằng id lấy được từ /api/cases.
+# File preview.h265 là file tải từ /api/cases/<case_id>/redacted-preview.h265.
 case_id = "flag_1780132060_da66f92c"
 data = Path("preview.h265").read_bytes()
 
 
 def byte_stream(seed: str, label: bytes):
+    # Sinh dòng byte dùng để XOR ngược payload trong SEI.
+    # Chỉ cần cùng case_id và cùng label là sinh ra đúng dòng byte backend đã dùng.
     counter = 0
     seed_bytes = seed.encode()
     while True:
@@ -366,11 +392,13 @@ def byte_stream(seed: str, label: bytes):
 
 
 def xor_bytes(raw: bytes, seed: str, label: bytes):
+    # Payload SEI bị che bằng XOR. XOR lại lần nữa bằng cùng dòng byte sẽ ra packet thật.
     stream = byte_stream(seed, label)
     return bytes(value ^ next(stream) for value in raw)
 
 
 def find_nals(raw: bytes):
+    # Tách file .h265 dạng Annex-B thành từng NAL dựa trên start code.
     starts = []
     i = 0
     while i < len(raw) - 3:
@@ -391,20 +419,26 @@ def find_nals(raw: bytes):
 
 
 def nal_type(nal: bytes) -> int:
+    # Lấy loại NAL của H.265. SEI thường nằm ở type 39 hoặc 40.
     if len(nal) < 2:
         return -1
     return (nal[0] >> 1) & 0x3F
 
 
 for nal in find_nals(data):
+    # Chỉ quan tâm SEI prefix/suffix.
     if nal_type(nal) not in (39, 40):
         continue
 
+    # Bỏ 2 byte header NAL để đọc phần payload bên trong.
     payload = nal[2:]
+
+    # H5DBG là dấu hiệu trace gỡ lỗi bị sót trong preview.
     pos = payload.find(b"H5DBG")
     if pos < 0:
         continue
 
+    # Sau H5DBG là 2 byte độ dài của packet đã bị XOR.
     size_pos = pos + len(b"H5DBG")
     size = struct.unpack(">H", payload[size_pos:size_pos + 2])[0]
     start = size_pos + 2
@@ -413,17 +447,21 @@ for nal in find_nals(data):
     if len(masked_packet) != size:
         continue
 
+    # Giải XOR bằng label riêng của kênh SEI.
     packet = xor_bytes(masked_packet, case_id, b"h265-ad-sei-trace:")
 
+    # Packet thật phải bắt đầu bằng magic H5AD.
     if packet[:4] != b"H5AD":
         continue
 
+    # Packet có dạng: H5AD || size 2 byte || flag || crc32(flag).
     flag_size = struct.unpack(">H", packet[4:6])[0]
     flag = packet[6:6 + flag_size]
     crc_expected = struct.unpack(">I", packet[6 + flag_size:10 + flag_size])[0]
     crc_actual = zlib.crc32(flag) & 0xFFFFFFFF
 
     if crc_actual != crc_expected:
+        # CRC sai nghĩa là packet vừa giải không phải flag hợp lệ.
         raise SystemExit("CRC sai. SEI có trace nhưng packet không hợp lệ.")
 
     print(flag.decode())
