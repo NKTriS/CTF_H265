@@ -25,11 +25,11 @@ files:
     - solution/exploit.py
     - solution/defense.patch
 description: |
-  H265 Evidence Portal là một web service attack/defense mô phỏng cổng import và
-  chia sẻ bằng chứng CCTV đã redact. Service gắn custody marker nội bộ của từng
-  case vào raw HEVC Annex-B bitstream bằng AUD NAL type 35. Hướng attack là khai
-  thác public redacted preview: preview vẫn phát được như video H.265 nhưng copy
-  AUD NAL chứa kênh ẩn. Marker không nằm trực tiếp trong LSB đơn giản: service
-  chèn AUD giả, dùng Manchester encoding và XOR mask theo case id trước khi ghi
-  bit vào primary_pic_type. Hướng defense là strip AUD khỏi preview hoặc tạo
-  preview sạch, đồng thời giữ dashboard, /api/store và /api/read hoạt động.
+  H265 Evidence Portal la mot web service attack/defense mo phong cong import va
+  chia se bang chung CCTV da redact. Service gan custody marker noi bo cua tung
+  case vao raw HEVC Annex-B bitstream. Root bug la public preview sanitizer copy
+  private metadata/custody side-channel tu carrier sang redacted artifact. Attacker
+  co the khai thac AUD timing channel, SEI debug trace hoac stale preview cache.
+  Huong defense dung la tao preview theo allowlist NAL an toan, strip metadata phu
+  nhu AUD/SEI, invalidate cache cu bang sanitizer version, dong thoi giu dashboard,
+  /api/store va /api/read hoat dong.

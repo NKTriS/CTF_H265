@@ -3,44 +3,69 @@
 ## Thông tin chung
 
 - Tên bài: H265 Evidence Portal AD
-- Chủ đề: H.265/HEVC Annex-B, CCTV redaction, AUD NAL steganography
+- Chủ đề: H.265/HEVC Annex-B, CCTV redaction, preview sanitizer, metadata side-channel
 - Hình thức: Attack/Defense
-- Độ khó đề xuất: Dễ
+- Độ khó đề xuất: Khó
 - Flag format: `blockChainPTIT{}`
 
 ## Mô tả
 
-H265 Evidence Portal là một web service mô phỏng cổng quản lý bằng chứng CCTV.
-Điều tra viên có dashboard tại `/` để import CCTV evidence từ một camera/source,
-lưu raw H.265 evidence carrier và kiểm tra lại custody marker bằng operator
-token. Marker là dữ liệu nội bộ do hệ thống gắn vào evidence để phục vụ
-chain-of-custody; người dùng bình thường không cần tự nhập marker trên giao diện.
+H265 Evidence Portal là một web service mô phỏng cổng quản lý bằng chứng CCTV. Điều tra viên dùng dashboard tại `/` để import CCTV evidence từ camera/source, lưu raw H.265 evidence carrier và kiểm tra custody marker bằng operator token.
 
-Phiên bản nâng cấp có kiến trúc giống service attack-defense thật hơn:
-`proxy` Nginx phục vụ frontend tĩnh, `backend` Flask xử lý API và H.265,
-`preview-worker` render preview bất đồng bộ, còn `postgres` lưu metadata
-case/audit/job queue. Service cũng có thêm operator login, registry camera, case
-share link, manifest public, audit trail và metadata redaction. Checker vẫn chỉ
-dùng API `check/put/get`, còn người tấn công nhìn thấy service như một cổng lưu
-trữ/tra cứu CCTV đã redact.
+Marker là dữ liệu nội bộ phục vụ chain-of-custody. Trong môi trường CTF, checker đặt flag động vào marker khi gọi API import case.
 
-Để chia sẻ nhanh với bên thứ ba, portal tạo public redacted preview có thể phát
-như video H.265. Preview dùng luồng CCTV đã giảm chi tiết/redact, nhưng pipeline
-vẫn copy các AUD NAL type 35 từ evidence carrier để bảo toàn nhịp/timing
-metadata. Vấn đề là custody marker lại được nhúng trong chuỗi AUD này. Bản
-mới không để flag ở dạng đọc thẳng: service chèn AUD giả, mã Manchester và XOR
-keystream sinh từ `case id` trước khi ghi vào `primary_pic_type`.
+Service có kiến trúc giống một bài attack-defense thật hơn:
 
-Trong môi trường CTF, checker đóng vai hệ thống nội bộ và đặt flag vào trường
-custody marker khi gọi API import case.
+- `proxy` Nginx phục vụ frontend tĩnh.
+- `backend` Flask xử lý API và H.265.
+- `preview-worker` render preview bất đồng bộ.
+- `postgres` lưu metadata case, audit trail và preview job queue.
 
-Nhiệm vụ của đội chơi:
+Service cũng có operator login, registry camera, public case/share link, manifest, audit trail và redacted preview.
 
-- Attack: tìm case public, tải redacted preview `.h265`, parse AUD NAL, bỏ AUD
-  giả theo cadence của `case id`, giải Manchester, bỏ XOR mask và khôi phục
-  custody marker/flag.
-- Defense: sửa preview để không còn rò kênh AUD, nhưng vẫn giữ dashboard,
-  `/api/store`, `/api/read` và checker hoạt động bình thường.
+## Root bug
+
+Bug lớn của bài nằm ở public preview pipeline:
+
+```text
+Service tạo redacted-preview.h265 bằng cách copy NAL từ private raw evidence carrier.
+Preview đã redact phần hình ảnh, nhưng vẫn copy nhầm metadata/custody side-channel.
+```
+
+Đây không phải một bug nhỏ kiểu quên check token. `/api/read` và `/api/carrier` vẫn yêu cầu đúng `id` và `token`.
+
+Vấn đề là preview public bị lẫn dữ liệu nội bộ. Từ cùng một root bug này, attacker có nhiều hướng khai thác:
+
+- AUD NAL type 35 chứa timing channel.
+- SEI prefix NAL type 39 chứa operator debug trace đã mask.
+- Preview cache cũ có thể vẫn giữ artifact sinh bởi sanitizer lỗi.
+
+Vì vậy defender không thể chỉ vá một dấu hiệu là xong. Defense đúng phải xử lý cả class lỗi: public preview không được copy metadata không nằm trong allowlist an toàn.
+
+## Nhiệm vụ đội chơi
+
+### Attack
+
+Người chơi cần:
+
+- Recon `/api/cases`, share link hoặc manifest để lấy `case id` và `preview_url`.
+- Tải `redacted-preview.h265`.
+- Parse HEVC Annex-B NAL.
+- Khai thác một hoặc nhiều side-channel còn sót trong preview public:
+  - AUD timing channel.
+  - SEI debug trace.
+  - Stale preview artifact.
+- Khôi phục custody marker/flag động do checker đặt.
+
+### Defense
+
+Người chơi cần:
+
+- Giữ dashboard và API hợp lệ hoạt động.
+- Giữ `checker check/put/get` chạy bình thường.
+- Tạo preview public theo allowlist NAL an toàn.
+- Strip metadata phụ như AUD/SEI/debug trace khỏi preview.
+- Invalidate preview cache cũ bằng sanitizer version hoặc purge cache.
 
 ## Chạy service local
 
@@ -75,35 +100,37 @@ GET  /api/preview-jobs
 GET  /api/cases/<id>/redacted-preview.h265
 ```
 
-Trong đó `/api/carrier` là route tải raw carrier hợp lệ nhưng yêu cầu đúng `id`
-và `token`. Điểm yếu nằm ở `/api/cases/<id>/redacted-preview.h265`: preview công
-khai vẫn xem được như video H.265, nhưng nó copy AUD NAL chứa custody marker.
+`/api/carrier` là route tải raw carrier hợp lệ nhưng cần token. Điểm yếu nằm ở public preview:
+
+```text
+GET /api/cases/<id>/redacted-preview.h265
+```
 
 ## Cơ chế giấu tin
 
-Carrier là raw HEVC Annex-B gồm các NAL unit có start code:
-
-```text
-00 00 00 01
-```
-
-Service chèn packet:
+Packet marker:
 
 ```text
 H5AD || 2-byte length || flag || crc32(flag)
 ```
 
-vào chuỗi AUD NAL. Packet không được ghi trực tiếp. Service xử lý theo thứ tự:
+AUD channel:
 
 ```text
 packet bits -> XOR mask theo case id -> Manchester encode -> AUD cadence có decoy
 ```
 
-Với mỗi AUD data, bit sau mã hóa nằm tại:
+Bit thật nằm ở:
 
 ```text
 nal_unit_type = 35
 encoded_bit = primary_pic_type & 1
+```
+
+SEI debug trace:
+
+```text
+H5DBG || 2-byte length || xor(packet, SHA256("h265-ad-sei-trace:" || case_id || counter))
 ```
 
 ## Flag mẫu
@@ -112,4 +139,4 @@ encoded_bit = primary_pic_type & 1
 blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 ```
 
-Khi vận hành attack/defense thật, checker sẽ đặt flag mới theo từng vòng.
+Khi vận hành attack-defense thật, checker sẽ đặt flag động mới theo từng chu kỳ/team/service.

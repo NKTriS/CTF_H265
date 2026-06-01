@@ -1,20 +1,21 @@
 diff --git a/service/backend/app.py b/service/backend/app.py
 --- a/service/backend/app.py
 +++ b/service/backend/app.py
-@@ -15,6 +15,7 @@ from stego import StegoError, embed_secret, extract_secret, find_nals, nal_type
+@@ -15,6 +15,8 @@ from stego import StegoError, embed_secret, extract_secret, find_nals, nal_type
  DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
  EVIDENCE_DIR = DATA_DIR / "evidence"
  PREVIEW_DIR = DATA_DIR / "previews"
-+PREVIEW_SANITIZER_VERSION = "strip-aud-v2"
++PREVIEW_SANITIZER_VERSION = "strip-metadata-v3"
++SAFE_PREVIEW_NAL_TYPES = set(range(0, 32)) | {32, 33, 34}
  DATABASE_URL = os.environ.get("DATABASE_URL")
  SQLITE_FILE = DATA_DIR / "evidence.db"
  ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
-@@ -700,15 +701,28 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
+@@ -700,15 +702,28 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
      preview = bytearray()
      for nal in find_nals(bitstream):
 -        # Vulnerability: the preview is playable because it keeps redacted VCL
 -        # frames, but it also preserves AUD timing metadata carrying the marker.
-+        if nal_type(nal) == 35:
++        if nal_type(nal) not in SAFE_PREVIEW_NAL_TYPES:
 +            continue
          preview += b"\x00\x00\x00\x01" + nal
      return bytes(preview)
@@ -40,7 +41,7 @@ diff --git a/service/backend/app.py b/service/backend/app.py
 +    version_path.write_text(PREVIEW_SANITIZER_VERSION, encoding="utf-8")
      _set_preview_job(item_id, "ready")
      return preview_path
-@@ -939,7 +953,7 @@ def redacted_preview(item_id: str):
+@@ -939,7 +954,7 @@ def redacted_preview(item_id: str):
          return jsonify(ok=False, error="not found"), 404
  
      preview_path = PREVIEW_DIR / f"{item_id}_redacted_preview.h265"

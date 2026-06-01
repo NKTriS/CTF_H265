@@ -1,22 +1,9 @@
 # H265 Evidence Portal AD - Writeup
 
-Writeup đã được tách theo từng vòng attack-defense:
+Writeup được tách thành hai file chính:
 
-- `solution/ATTACK.md`: mục lục phần attack.
-- `solution/DEFENSE.md`: mục lục phần defense.
-- `solution/ATTACK_ROUND_1.md`: khai thác AUD leak trong public redacted preview.
-- `solution/DEFENSE_ROUND_1.md`: strip AUD NAL type 35 khỏi preview mới.
-- `solution/ATTACK_ROUND_2.md`: khai thác stale preview cache sau khi vá lần 1.
-- `solution/DEFENSE_ROUND_2.md`: invalidate cache bằng sanitizer version và kiểm tra lại.
-
-Luồng đọc khuyến nghị:
-
-```text
-ATTACK_ROUND_1.md
--> DEFENSE_ROUND_1.md
--> ATTACK_ROUND_2.md
--> DEFENSE_ROUND_2.md
-```
+- `solution/ATTACK.md`: phân tích một root bug lớn và nhiều hướng khai thác từ bug đó.
+- `solution/DEFENSE.md`: chiến lược vá tổng thể cho cả class lỗi, không vá từng dấu hiệu.
 
 ## Tóm tắt lỗi
 
@@ -35,17 +22,20 @@ GET /api/cases/<id>/redacted-preview.h265
 Trong luồng thực tế hơn, preview này thường được phát hiện qua `/api/cases`,
 `/share/<share_id>` hoặc `/api/share/<share_id>/manifest.json`.
 
-Backend tạo bản preview CCTV đã redact và vẫn phát được, rồi copy AUD NAL để giữ
-timing metadata. Nhưng preview vẫn giữ AUD NAL type 35. Trong bài này,
-flag/custody marker không nằm ở dạng đọc thẳng: service chèn AUD giả theo
-cadence sinh từ `case id`, mã Manchester và XOR mask trước khi ghi bit vào
-`primary_pic_type & 1`. Vì `case id` và preview URL đều public, attacker vẫn có
-đủ dữ liệu để khôi phục packet:
+Backend tạo bản preview CCTV đã redact và vẫn phát được bằng cách copy NAL từ raw
+carrier. Đây là root bug: public artifact bị lẫn private metadata/custody side-channel.
+Trong bài này, attacker có nhiều hướng từ cùng một lỗi:
+
+- AUD NAL type 35 chứa timing channel.
+- SEI prefix NAL type 39 chứa debug trace đã mask.
+- Preview cache cũ có thể vẫn giữ artifact sinh bởi sanitizer lỗi.
+
+Flag/custody marker không nằm ở dạng đọc thẳng. Packet gốc là:
 
 ```text
 H5AD || 2-byte length || flag || crc32(flag)
 ```
 
-Defense chính là sửa preview để strip AUD NAL hoặc tạo lại AUD trung tính trong
-khi vẫn giữ các frame preview phát được, đồng thời giữ nguyên dashboard,
-`/api/store`, `/api/read` và checker.
+Defense chính là sửa preview theo allowlist NAL an toàn, strip metadata phụ như
+AUD/SEI/debug trace, invalidate preview cache cũ bằng sanitizer version, đồng thời
+giữ nguyên dashboard, `/api/store`, `/api/read` và checker.

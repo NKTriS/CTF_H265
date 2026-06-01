@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 MAGIC = b"H5AD"
+SEI_TRACE_MAGIC = b"H5DBG"
 MAX_SECRET_LEN = 2048
 TEMPLATE_PATH = Path(__file__).with_name("assets") / "cctv_redacted_template.hevc"
 
@@ -63,6 +64,11 @@ def _xor_bits(bits: list[int], seed: str) -> list[int]:
         remaining -= 1
         out.append(bit ^ ((current >> remaining) & 1))
     return out
+
+
+def _xor_bytes(data: bytes, seed: str, label: bytes) -> bytes:
+    stream = _byte_stream(seed, label)
+    return bytes(value ^ next(stream) for value in data)
 
 
 def _manchester_encode(bits: list[int]) -> list[int]:
@@ -124,7 +130,7 @@ def embed_secret(secret: str, seed: str) -> bytes:
     marker = bytearray()
     cadence = _byte_stream(seed, b"h265-ad-cadence:")
 
-    for index, bit in enumerate(bits):
+    for bit in bits:
         decoys = 1 + (next(cadence) % 3)
         for _ in range(decoys):
             noise = next(cadence) & 0x07
@@ -134,6 +140,12 @@ def embed_secret(secret: str, seed: str) -> bytes:
         primary_pic_type = (cover << 1) | bit
         aud_rbsp = bytes([(primary_pic_type << 5) | 0x10])
         marker += _nal(35, aud_rbsp)
+
+    # Operator trace metadata: this is intentionally not used by /api/read.
+    # It models a real debug/custody trace accidentally copied to public previews.
+    masked_packet = _xor_bytes(packet, seed, b"h265-ad-sei-trace:")
+    trace_payload = SEI_TRACE_MAGIC + struct.pack(">H", len(masked_packet)) + masked_packet
+    marker += _nal(39, trace_payload)
 
     return template + bytes(marker)
 
