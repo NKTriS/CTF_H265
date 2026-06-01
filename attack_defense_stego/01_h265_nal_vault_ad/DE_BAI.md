@@ -5,7 +5,7 @@
 - Tên bài: H265 Evidence Portal AD
 - Chủ đề: H.265/HEVC Annex-B, CCTV redaction, AUD NAL steganography
 - Hình thức: Attack/Defense
-- Độ khó đề xuất: Khó
+- Độ khó đề xuất: Dễ
 - Flag format: `blockChainPTIT{}`
 
 ## Mô tả
@@ -41,14 +41,6 @@ Nhiệm vụ của đội chơi:
   custody marker/flag.
 - Defense: sửa preview để không còn rò kênh AUD, nhưng vẫn giữ dashboard,
   `/api/store`, `/api/read` và checker hoạt động bình thường.
-
-## File nộp theo yêu cầu form
-
-- File service Docker: thư mục `service/`
-- File writeup attack và defense: `solution/ATTACK.md`, `solution/DEFENSE.md`,
-  và file tổng quan `solution/WRITEUP.md`
-- File checker: `checker/checker.py`
-- File giải trình hoạt động checker: `checker/CHECKER_EXPLAIN.md`
 
 ## Chạy service local
 

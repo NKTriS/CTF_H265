@@ -94,18 +94,3 @@ python checker.py get 127.0.0.1 8000 '{"id":"flag_x","token":"token_x"}' 'blockC
 
 Checker gửi `id` và `token` vào `/api/read`, so sánh marker trả về với flag gốc.
 Nếu khác nhau thì trả `CORRUPT`.
-
-## Vì sao checker không có `exploit`
-
-Bản cũ từng có mode `exploit` trong checker để tiện test lab. Cách đó không
-chuẩn khi đưa lên hệ thống attack-defense vì checker bị lẫn vai trò:
-
-- Checker là công cụ của ban tổ chức để kiểm tra service.
-- Exploit là tài liệu/solution cho người giải.
-- Nếu checker chứa exploit, người đọc checker có thể thấy luôn cách lấy flag.
-
-Vì vậy mode khai thác đã được tách sang:
-
-```bash
-python solution/exploit.py http://127.0.0.1:8000 --id flag_x
-```
