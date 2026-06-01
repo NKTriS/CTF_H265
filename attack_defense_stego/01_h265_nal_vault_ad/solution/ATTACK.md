@@ -10,8 +10,15 @@ Có hai luồng cần phân biệt:
 
 - Luồng hợp lệ: `/api/read` và `/api/carrier` yêu cầu đúng `case id` và
   `operator token`.
-- Luồng public: `/api/cases` và `/api/cases/<id>/redacted-preview.h265` không
-  yêu cầu token.
+- Luồng public: `/api/cases`, `/share/<share_id>`,
+  `/api/share/<share_id>/manifest.json` và
+  `/api/cases/<id>/redacted-preview.h265` không yêu cầu token.
+
+Ở bản nâng cấp, service không chỉ là API đặt/đọc flag. Nó có operator console,
+camera registry, public share link, manifest và audit trail. Khi deploy bằng
+Docker, frontend tĩnh, backend API và PostgreSQL database cũng được tách thành
+các container riêng. Các lớp này làm kịch bản giống một hệ thống lưu trữ CCTV
+hơn, nhưng bug chính vẫn nằm ở public redacted preview.
 
 Điểm đáng nghi nằm ở preview public. Giao diện nói đây là bản CCTV đã redact,
 vẫn phát được như H.265, nhưng backend giữ lại timing metadata. Với video HEVC,
@@ -49,7 +56,8 @@ Trên dashboard có ba ý quan trọng:
 
 - Có form import CCTV evidence.
 - Có form verify custody marker bằng `case id` và `operator token`.
-- Có public redacted preview cho từng case.
+- Có camera registry, audit feed, public share/manifest và redacted preview cho
+  từng case.
 
 Từ góc nhìn attacker, token là thứ không có. Vì vậy hướng hợp lý là tìm những
 endpoint public trước.
@@ -71,9 +79,13 @@ Output trả về có dạng:
   "items": [
     {
       "case_url": "/case/flag_1780132060_da66f92c",
+      "camera": "Lobby camera 01",
       "created_at": 1780132060,
       "id": "flag_1780132060_da66f92c",
+      "manifest_url": "/api/share/8a7f.../manifest.json",
       "preview_url": "/api/cases/flag_1780132060_da66f92c/redacted-preview.h265",
+      "redaction_profile": "faces+badges",
+      "share_url": "/share/8a7f...",
       "source": "lobby_cam_01"
     }
   ],

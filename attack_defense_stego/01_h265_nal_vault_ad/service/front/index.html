@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>H265 Evidence Portal</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5d6b82;
+      --line: #d8dfeb;
+      --accent: #0f766e;
+      --accent-dark: #115e59;
+      --code: #111827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+    .wrap {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+    .topbar {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 0; }
+    main { padding: 24px 0 42px; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+    .wide { margin-top: 16px; }
+    .muted { color: var(--muted); margin: 0 0 14px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent-dark);
+      font-weight: 800;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 11px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, .12);
+    }
+    button, .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      margin-top: 14px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    button:hover, .button:hover { background: var(--accent-dark); }
+    pre {
+      margin: 14px 0 0;
+      min-height: 110px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f8fafc;
+      color: var(--code);
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow: auto;
+    }
+    code {
+      background: #eef2f7;
+      border: 1px solid #dce3ee;
+      border-radius: 5px;
+      padding: 2px 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+    .case-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .case {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfdff;
+    }
+    .case strong { display: block; margin-bottom: 4px; }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .links a {
+      color: var(--accent-dark);
+      font-weight: 800;
+      text-decoration: none;
+    }
+    @media (max-width: 780px) {
+      .grid, .row { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; align-items: flex-start; padding: 18px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <div>
+        <h1>H265 Evidence Portal</h1>
+        <div class="muted">CCTV intake, redaction review, public evidence share, and HEVC custody markers.</div>
+      </div>
+      <div class="status"><span class="dot"></span> Service online</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>Operator Console</h2>
+      <p class="muted">Frontend, backend, and database are separate services. Operators review cameras and publish redacted shares.</p>
+      <form id="loginForm">
+        <div class="row">
+          <div>
+            <label for="loginUser">Operator</label>
+            <input id="loginUser" autocomplete="off" placeholder="triage">
+          </div>
+          <div>
+            <label for="loginPass">Password</label>
+            <input id="loginPass" autocomplete="off" type="password" placeholder="triage-2026">
+          </div>
+        </div>
+        <button type="submit">Open operator session</button>
+      </form>
+      <pre id="operatorOut">No operator session.</pre>
+    </section>
+
+    <div class="grid wide">
+      <section>
+        <h2>Import CCTV Evidence</h2>
+        <p class="muted">The backend stores a raw HEVC carrier and attaches an internal custody marker.</p>
+        <form id="storeForm">
+          <div class="row">
+            <div>
+              <label for="storeId">Case ID</label>
+              <input id="storeId" autocomplete="off" placeholder="case_2026_001" required>
+            </div>
+            <div>
+              <label for="storeToken">Operator Token</label>
+              <input id="storeToken" autocomplete="off" placeholder="at least 8 characters" required>
+            </div>
+          </div>
+          <label for="storeSource">CCTV Source</label>
+          <select id="storeSource"></select>
+          <button type="submit">Import evidence</button>
+        </form>
+        <pre id="storeOut">No request yet.</pre>
+      </section>
+
+      <section>
+        <h2>Verify Custody Marker</h2>
+        <p class="muted">Authorized verification requires the correct <code>case id</code> and <code>operator token</code>.</p>
+        <form id="readForm">
+          <div class="row">
+            <div>
+              <label for="readId">Case ID</label>
+              <input id="readId" autocomplete="off" required>
+            </div>
+            <div>
+              <label for="readToken">Operator Token</label>
+              <input id="readToken" autocomplete="off" required>
+            </div>
+          </div>
+          <button type="submit">Verify marker</button>
+        </form>
+        <pre id="readOut">No request yet.</pre>
+      </section>
+    </div>
+
+    <div class="grid wide">
+      <section>
+        <h2>Camera Registry</h2>
+        <pre id="cameraOut">Loading cameras...</pre>
+      </section>
+      <section>
+        <h2>Audit Trail</h2>
+        <pre id="auditOut">Loading audit...</pre>
+      </section>
+    </div>
+
+    <section class="wide">
+      <h2>Public Redacted Shares</h2>
+      <p class="muted">Public preview links are intended for review after visible CCTV detail has been redacted.</p>
+      <div id="caseOut" class="case-list">Loading cases...</div>
+    </section>
+  </main>
+
+  <script>
+    const json = (value) => JSON.stringify(value, null, 2);
+
+    async function postJson(path, body) {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({ok: false, error: "bad json"}));
+      return {status: res.status, data};
+    }
+
+    async function getJson(path) {
+      const res = await fetch(path);
+      const data = await res.json().catch(() => ({ok: false, error: "bad json"}));
+      return {status: res.status, data};
+    }
+
+    function renderCases(items) {
+      const target = document.getElementById("caseOut");
+      if (!items.length) {
+        target.textContent = "No public cases yet.";
+        return;
+      }
+      target.innerHTML = "";
+      for (const item of items) {
+        const div = document.createElement("div");
+        div.className = "case";
+        div.innerHTML = `
+          <strong>${item.id}</strong>
+          <div>${item.camera} · ${item.zone} · ${item.redaction_profile}</div>
+          <div class="links">
+            <a href="${item.share_url}">share</a>
+            <a href="${item.manifest_url}">manifest</a>
+            <a href="${item.preview_url}">preview.h265</a>
+          </div>
+        `;
+        target.appendChild(div);
+      }
+    }
+
+    async function refreshPortal() {
+      const me = await getJson("/api/operator/me");
+      document.getElementById("operatorOut").textContent = json(me);
+
+      const cameras = await getJson("/api/cameras");
+      document.getElementById("cameraOut").textContent = json(cameras);
+      const select = document.getElementById("storeSource");
+      select.innerHTML = "";
+      for (const camera of cameras.data.cameras || []) {
+        const option = document.createElement("option");
+        option.value = camera.id;
+        option.textContent = `${camera.name} (${camera.zone})`;
+        select.appendChild(option);
+      }
+
+      const cases = await getJson("/api/cases");
+      renderCases(cases.data.items || []);
+      document.getElementById("auditOut").textContent = json(await getJson("/api/audit"));
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      document.getElementById("operatorOut").textContent = json(await postJson("/api/operator/login", {
+        username: document.getElementById("loginUser").value,
+        password: document.getElementById("loginPass").value,
+      }));
+      await refreshPortal();
+    });
+
+    document.getElementById("storeForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const body = {
+        id: document.getElementById("storeId").value,
+        token: document.getElementById("storeToken").value,
+        source: document.getElementById("storeSource").value,
+      };
+      const result = await postJson("/api/store", body);
+      document.getElementById("storeOut").textContent = json(result);
+      if (result.data.ok) {
+        document.getElementById("readId").value = body.id;
+        document.getElementById("readToken").value = body.token;
+        await refreshPortal();
+      }
+    });
+
+    document.getElementById("readForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      document.getElementById("readOut").textContent = json(await postJson("/api/read", {
+        id: document.getElementById("readId").value,
+        token: document.getElementById("readToken").value,
+      }));
+    });
+
+    refreshPortal();
+  </script>
+</body>
+</html>

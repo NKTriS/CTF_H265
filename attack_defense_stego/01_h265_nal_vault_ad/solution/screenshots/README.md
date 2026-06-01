@@ -20,9 +20,9 @@ Danh sách ảnh đề xuất:
 1. `defense-01-before-exploit-leaks-flag.png`
    - Chụp exploit trước khi vá, output có flag.
 2. `defense-02-vulnerable-preview-code.png`
-   - Chụp `service/app.py` có hàm preview giữ lại AUD NAL.
+   - Chụp `service/backend/app.py` có hàm preview giữ lại AUD NAL.
 3. `defense-03-patched-preview-code.png`
-   - Chụp `service/app.py` sau khi preview đã strip AUD NAL.
+   - Chụp `service/backend/app.py` sau khi preview đã strip AUD NAL.
 4. `defense-04-service-health-after-patch.png`
    - Chụp `curl /health` sau khi rebuild/restart service.
 5. `defense-05-checker-still-ok.png`

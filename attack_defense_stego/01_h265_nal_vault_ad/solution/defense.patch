@@ -1,8 +1,7 @@
-diff --git a/service/app.py b/service/app.py
---- a/service/app.py
-+++ b/service/app.py
-@@ -371,7 +371,7 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
- def _preview_bitstream(bitstream: bytes) -> bytes:
+diff --git a/service/backend/app.py b/service/backend/app.py
+--- a/service/backend/app.py
++++ b/service/backend/app.py
+@@ -636,6 +636,6 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
      preview = bytearray()
      for nal in find_nals(bitstream):
 -        # Vulnerability: the preview is playable because it keeps redacted VCL

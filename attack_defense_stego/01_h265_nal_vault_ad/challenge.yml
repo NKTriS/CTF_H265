@@ -6,12 +6,14 @@ flag: blockChainPTIT{4ud_n4l_d3bug_l34k_br34ks_h265_v4ult}
 type: attack-defense
 files:
   service:
-    - service/Dockerfile
     - service/docker-compose.yml
-    - service/app.py
-    - service/stego.py
-    - service/requirements.txt
-    - service/assets/cctv_redacted_template.hevc
+    - service/backend/Dockerfile
+    - service/backend/app.py
+    - service/backend/stego.py
+    - service/backend/requirements.txt
+    - service/backend/assets/cctv_redacted_template.hevc
+    - service/front/index.html
+    - service/proxy/nginx.conf
   checker:
     - checker/checker.py
     - checker/CHECKER_EXPLAIN.md

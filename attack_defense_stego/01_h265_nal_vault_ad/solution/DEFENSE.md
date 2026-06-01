@@ -68,7 +68,7 @@ height=360
 Chạy exploit:
 
 ```bash
-python checker/checker.py exploit 127.0.0.1 8000 --flag-id flag_1710000000_abcd1234
+python solution/exploit.py http://127.0.0.1:8000 --id flag_1710000000_abcd1234
 ```
 
 Nếu chưa vá, exploit in ra flag:
@@ -84,7 +84,7 @@ cầu token.
 
 ## 3. Xác định nguyên nhân gốc
 
-Mở `service/app.py`, hàm tạo preview:
+Mở `service/backend/app.py`, hàm tạo preview:
 
 ```python
 def _preview_bitstream(bitstream: bytes) -> bytes:
@@ -101,7 +101,7 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
 Vấn đề là hàm này copy toàn bộ NAL sang preview. Nó giữ được video preview phát
 được, nhưng cũng giữ luôn AUD NAL type 35.
 
-Mở tiếp `service/stego.py`, phần nhúng marker:
+Mở tiếp `service/backend/stego.py`, phần nhúng marker:
 
 ```python
 bits = _manchester_encode(_xor_bits(_bytes_to_bits(packet), seed))
@@ -270,7 +270,7 @@ curl -I http://127.0.0.1:8000/api/cases/flag_1710000000_abcd1234/redacted-previe
 Nhưng exploit không còn lấy được flag:
 
 ```bash
-python checker/checker.py exploit 127.0.0.1 8000 --flag-id flag_1710000000_abcd1234
+python solution/exploit.py http://127.0.0.1:8000 --id flag_1710000000_abcd1234
 ```
 
 Kết quả hợp lệ là exploit không in flag và trả exit code khác 0. Lý do là

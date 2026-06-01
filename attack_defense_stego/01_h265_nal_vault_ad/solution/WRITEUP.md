@@ -5,6 +5,14 @@ Writeup đã được tách thành hai file riêng:
 - `solution/ATTACK.md`: cách khai thác redacted preview `.h265`, parse AUD NAL và lấy flag.
 - `solution/DEFENSE.md`: cách vá preview, ảnh chụp màn hình cần có, và cách chứng minh checker vẫn OK.
 
+## Bản nâng cấp
+
+Service hiện đã tách thành `proxy` Nginx, `front` tĩnh, `backend` Flask và
+`postgres` database. Bên trên kiến trúc đó có operator console, camera registry,
+public share link, manifest và audit trail. Những lớp này làm bài giống một hệ
+thống CCTV evidence portal thật hơn, nhưng checker vẫn chỉ dùng `check/put/get`
+và lỗi chính vẫn nằm ở public redacted preview.
+
 ## Tóm tắt lỗi
 
 Service mô phỏng cổng chia sẻ bằng chứng CCTV đã redact. Dashboard `/` cho phép
@@ -18,6 +26,9 @@ Lỗi nằm ở tính năng public redacted preview:
 ```text
 GET /api/cases/<id>/redacted-preview.h265
 ```
+
+Trong luồng thực tế hơn, preview này thường được phát hiện qua `/api/cases`,
+`/share/<share_id>` hoặc `/api/share/<share_id>/manifest.json`.
 
 Backend tạo bản preview CCTV đã redact và vẫn phát được, rồi copy AUD NAL để giữ
 timing metadata. Nhưng preview vẫn giữ AUD NAL type 35. Trong bài này,

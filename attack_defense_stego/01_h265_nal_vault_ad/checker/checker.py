@@ -2,22 +2,26 @@
 import argparse
 import hashlib
 import json
+import os
 import secrets
-import struct
 import sys
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
-import zlib
 
 
-MAGIC = b"H5AD"
+OK = 101
+CORRUPT = 102
+MUMBLE = 103
+DOWN = 104
+CHECK_FAILED = 110
+DEFAULT_PORT = int(os.environ.get("SERVICE_PORT", "8000"))
 
 
 def base_url(host: str, port: int) -> str:
     if host.startswith("http://") or host.startswith("https://"):
-        return f"{host.rstrip('/')}:{port}" if ":" not in host.rsplit("/", 1)[-1] else host.rstrip("/")
+        tail = host.rsplit("/", 1)[-1]
+        return f"{host.rstrip('/')}:{port}" if ":" not in tail else host.rstrip("/")
     return f"http://{host}:{port}"
 
 
@@ -32,227 +36,132 @@ def http_json(url: str, method: str = "GET", body: dict | None = None, timeout: 
         return json.loads(resp.read().decode("utf-8"))
 
 
-def http_bytes(url: str, timeout: int = 5) -> bytes:
-    with urllib.request.urlopen(url, timeout=timeout) as resp:
-        return resp.read()
+def deterministic_token(flag_id: str) -> str:
+    return hashlib.sha256(f"h265-ad-checker-token:{flag_id}".encode("utf-8")).hexdigest()[:32]
 
 
-def find_nals(data: bytes):
-    starts = []
-    i = 0
-    while i < len(data) - 3:
-        if data[i:i + 4] == b"\x00\x00\x00\x01":
-            starts.append((i, 4))
-            i += 4
-        elif data[i:i + 3] == b"\x00\x00\x01":
-            starts.append((i, 3))
-            i += 3
-        else:
-            i += 1
-    for idx, (start, sc_len) in enumerate(starts):
-        end = starts[idx + 1][0] if idx + 1 < len(starts) else len(data)
-        nal = data[start + sc_len:end]
-        if nal:
-            yield nal
+def cquit(code: int, public: str, private: str = "") -> int:
+    print(public)
+    if private:
+        print(private, file=sys.stderr)
+    return code
 
 
-def nal_type(nal: bytes) -> int:
-    if len(nal) < 2:
-        return -1
-    return (nal[0] >> 1) & 0x3F
-
-
-def bits_to_bytes(bits: list[int]) -> bytes:
-    out = bytearray()
-    for i in range(0, len(bits) - 7, 8):
-        value = 0
-        for bit in bits[i:i + 8]:
-            value = (value << 1) | bit
-        out.append(value)
-    return bytes(out)
-
-
-def byte_stream(seed: str, label: bytes):
-    counter = 0
-    seed_bytes = seed.encode("utf-8")
-    while True:
-        block = hashlib.sha256(label + seed_bytes + counter.to_bytes(4, "big")).digest()
-        counter += 1
-        for value in block:
-            yield value
-
-
-def xor_bits(bits: list[int], seed: str) -> list[int]:
-    stream = byte_stream(seed, b"h265-ad-mask:")
-    out = []
-    current = 0
-    remaining = 0
-    for bit in bits:
-        if remaining == 0:
-            current = next(stream)
-            remaining = 8
-        remaining -= 1
-        out.append(bit ^ ((current >> remaining) & 1))
-    return out
-
-
-def manchester_decode(bits: list[int]) -> list[int]:
-    decoded = []
-    for i in range(0, len(bits) - 1, 2):
-        pair = bits[i:i + 2]
-        if pair == [0, 1]:
-            decoded.append(0)
-        elif pair == [1, 0]:
-            decoded.append(1)
-        else:
-            raise ValueError("bad manchester symbol")
-    return decoded
-
-
-def extract_secret(bitstream: bytes, seed: str) -> str:
-    aud_bits = []
-    for nal in find_nals(bitstream):
-        if nal_type(nal) != 35 or len(nal) < 3:
-            continue
-        primary_pic_type = (nal[2] >> 5) & 0x07
-        aud_bits.append(primary_pic_type & 1)
-
-    encoded = []
-    pos = 0
-    cadence = byte_stream(seed, b"h265-ad-cadence:")
-    while pos < len(aud_bits):
-        decoys = 1 + (next(cadence) % 3)
-        for _ in range(decoys):
-            if pos >= len(aud_bits):
-                break
-            next(cadence)
-            pos += 1
-        if pos >= len(aud_bits):
-            break
-        next(cadence)
-        encoded.append(aud_bits[pos])
-        pos += 1
-
-    bits = xor_bits(manchester_decode(encoded), seed)
-    if len(bits) < 48:
-        raise ValueError("not enough aud nals")
-    header = bits_to_bytes(bits[:48])
-    if header[:4] != MAGIC:
-        raise ValueError("missing magic")
-    size = struct.unpack(">H", header[4:6])[0]
-    packet = bits_to_bytes(bits[:(10 + size) * 8])
-    secret = packet[6:6 + size]
-    crc = struct.unpack(">I", packet[6 + size:10 + size])[0]
-    if (zlib.crc32(secret) & 0xFFFFFFFF) != crc:
-        raise ValueError("bad crc")
-    return secret.decode("utf-8")
+def parse_port(value: str | None) -> int:
+    return int(value) if value is not None else DEFAULT_PORT
 
 
 def cmd_check(args) -> int:
-    url = base_url(args.host, args.port)
+    port = parse_port(args.port)
+    url = base_url(args.host, port)
     item_id = f"check_{secrets.token_hex(4)}"
     token = secrets.token_hex(12)
     secret = f"service_check_{int(time.time())}"
+
     health = http_json(f"{url}/health")
     if not health.get("ok"):
-        print("DOWN: bad health")
-        return 1
+        return cquit(DOWN, "DOWN", "health endpoint returned ok=false")
+
     stored = http_json(f"{url}/api/store", "POST", {"id": item_id, "token": token, "secret": secret})
     if not stored.get("ok"):
-        print("MUMBLE: store failed")
-        return 1
+        return cquit(MUMBLE, "MUMBLE", "store endpoint rejected a valid marker")
+
     read = http_json(f"{url}/api/read", "POST", {"id": item_id, "token": token})
     if read.get("secret") != secret:
-        print("MUMBLE: read mismatch")
-        return 1
-    print("OK")
-    return 0
+        return cquit(MUMBLE, "MUMBLE", "read endpoint returned a different marker")
+
+    return cquit(OK, "OK")
 
 
 def cmd_put(args) -> int:
-    url = base_url(args.host, args.port)
-    item_id = args.flag_id or f"flag_{int(time.time())}_{secrets.token_hex(4)}"
-    token = secrets.token_hex(16)
-    stored = http_json(f"{url}/api/store", "POST", {"id": item_id, "token": token, "secret": args.flag})
+    rest = args.rest
+    port = parse_port(args.port)
+    flag_id = None
+
+    if rest and rest[0].isdigit():
+        port = int(rest.pop(0))
+
+    if len(rest) == 1:
+        flag = rest[0]
+    elif len(rest) >= 2:
+        flag_id = rest[0]
+        flag = rest[1]
+    else:
+        raise ValueError("put expects FLAG or FLAG_ID FLAG [VULN]")
+
+    url = base_url(args.host, port)
+    item_id = flag_id or f"flag_{int(time.time())}_{secrets.token_hex(4)}"
+    token = deterministic_token(item_id) if flag_id else secrets.token_hex(16)
+    stored = http_json(f"{url}/api/store", "POST", {"id": item_id, "token": token, "secret": flag})
     if not stored.get("ok"):
-        print("MUMBLE: store failed")
-        return 1
+        return cquit(MUMBLE, "MUMBLE", "store endpoint rejected the flag marker")
+
     print(json.dumps({"id": item_id, "token": token}, sort_keys=True))
-    return 0
+    return OK
 
 
 def cmd_get(args) -> int:
-    url = base_url(args.host, args.port)
-    flag_id = json.loads(args.flag_id)
+    rest = args.rest
+    port = parse_port(args.port)
+
+    if rest and rest[0].isdigit():
+        port = int(rest.pop(0))
+
+    if len(rest) < 2:
+        raise ValueError("get expects FLAG_ID FLAG [VULN]")
+
+    flag_id_arg = rest[0]
+    flag = rest[1]
+    url = base_url(args.host, port)
+    try:
+        flag_id = json.loads(flag_id_arg)
+    except json.JSONDecodeError:
+        flag_id = {"id": flag_id_arg, "token": deterministic_token(flag_id_arg)}
     read = http_json(f"{url}/api/read", "POST", flag_id)
-    if read.get("secret") != args.flag:
-        print("CORRUPT: flag mismatch")
-        return 1
-    print("OK")
-    return 0
+    if read.get("secret") != flag:
+        return cquit(CORRUPT, "CORRUPT", "stored marker does not match the expected flag")
+    return cquit(OK, "OK")
 
 
-def cmd_exploit(args) -> int:
-    url = base_url(args.host, args.port)
-    if args.flag_id:
-        try:
-            decoded = json.loads(args.flag_id)
-            items = [{"id": decoded["id"], "preview_url": f"/api/cases/{decoded['id']}/redacted-preview.h265"}]
-        except Exception:
-            items = [{"id": args.flag_id, "preview_url": f"/api/cases/{args.flag_id}/redacted-preview.h265"}]
-    else:
-        listing = http_json(f"{url}/api/cases")
-        items = listing.get("items", [])
-
-    found = []
-    for item in items:
-        preview_url = item.get("preview_url") or f"/api/cases/{item.get('id')}/redacted-preview.h265"
-        quoted = urllib.parse.quote(preview_url, safe="/._-")
-        try:
-            bitstream = http_bytes(f"{url}{quoted}")
-            secret = extract_secret(bitstream, seed=item["id"])
-        except Exception:
-            continue
-        if secret.startswith(args.prefix):
-            found.append(secret)
-    for secret in sorted(set(found)):
-        print(secret)
-    return 0 if found else 2
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="H265 Evidence Portal AD checker")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="H265 Evidence Portal Hackerdom-style checker")
     sub = parser.add_subparsers(dest="mode", required=True)
 
-    for name in ("check", "exploit"):
-        p = sub.add_parser(name)
-        p.add_argument("host")
-        p.add_argument("port", type=int)
-        if name == "exploit":
-            p.add_argument("--prefix", default="blockChainPTIT{")
-            p.add_argument("--flag-id")
-        p.set_defaults(func=cmd_check if name == "check" else cmd_exploit)
+    p = sub.add_parser("check")
+    p.add_argument("host")
+    p.add_argument("port", nargs="?")
+    p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("put")
     p.add_argument("host")
-    p.add_argument("port", type=int)
-    p.add_argument("flag")
-    p.add_argument("--flag-id")
+    p.add_argument("--port")
+    p.add_argument("rest", nargs="+", help="[PORT] FLAG or FLAG_ID FLAG [VULN]")
     p.set_defaults(func=cmd_put)
 
     p = sub.add_parser("get")
     p.add_argument("host")
-    p.add_argument("port", type=int)
-    p.add_argument("flag_id")
-    p.add_argument("flag")
+    p.add_argument("--port")
+    p.add_argument("rest", nargs="+", help="[PORT] FLAG_ID FLAG [VULN]")
     p.set_defaults(func=cmd_get)
 
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
     args = parser.parse_args()
     try:
         return args.func(args)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, ValueError) as exc:
-        print(f"DOWN: {exc}")
-        return 1
+    except urllib.error.HTTPError as exc:
+        if 500 <= exc.code <= 599:
+            return cquit(DOWN, "DOWN", f"http {exc.code}")
+        return cquit(MUMBLE, "MUMBLE", f"http {exc.code}")
+    except (urllib.error.URLError, TimeoutError) as exc:
+        return cquit(DOWN, "DOWN", str(exc))
+    except (json.JSONDecodeError, KeyError, ValueError) as exc:
+        return cquit(MUMBLE, "MUMBLE", str(exc))
+    except Exception as exc:
+        return cquit(CHECK_FAILED, "CHECK FAILED", repr(exc))
 
 
 if __name__ == "__main__":

@@ -1,16 +1,48 @@
 services:
-  h265-evidence-portal:
-    build: .
+  proxy:
+    image: nginx:1.25-alpine
     ports:
       - "8000:8000"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./front:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+    cpus: 1
+    mem_limit: 128m
+    pids_limit: 128
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       - DATA_DIR=/data
+      - DATABASE_URL=postgresql://h265:h265@postgres:5432/h265
+      - APP_SECRET=h265-evidence-portal-compose-secret
     volumes:
-      - h265_evidence_portal_data:/data
+      - h265_evidence_files:/data
+    depends_on:
+      - postgres
+    cpus: 1
+    mem_limit: 512m
+    pids_limit: 256
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=h265
+      - POSTGRES_PASSWORD=h265
+      - POSTGRES_DB=h265
+    volumes:
+      - h265_evidence_db:/var/lib/postgresql/data
     cpus: 1
     mem_limit: 512m
     pids_limit: 256
     restart: unless-stopped
 
 volumes:
-  h265_evidence_portal_data:
+  h265_evidence_files:
+  h265_evidence_db:
