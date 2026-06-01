@@ -2,76 +2,63 @@
 
 ## 1. Lỗ Hổng Tổng Quát
 
-Lỗi nằm ở cách tạo file preview công khai.
-
-File gốc H.265 là dữ liệu riêng tư. Nó không chỉ chứa hình ảnh, mà còn có nhiều NAL chứa
-dữ liệu phụ:
-
-- VCL frame: khung hình video.
-- VPS/SPS/PPS: thông tin cần để giải mã video.
-- AUD: dữ liệu nhịp/ranh giới ảnh.
-- SEI: dữ liệu phụ.
-- dấu vết gỡ lỗi: thông tin kiểm tra nội bộ.
-- custody marker: dữ liệu dùng để kiểm tra chuỗi bằng chứng.
-
-Preview công khai chỉ nên giữ phần đủ để xem video đã che thông tin nhạy cảm. Nhưng bản
-lỗi copy cả dữ liệu phụ từ file gốc sang preview. Vì vậy flag có thể bị lộ qua AUD, SEI
-hoặc file preview cũ trong cache.
-
-Mục tiêu vá:
+Bài này không chỉ có một endpoint hở. Lỗi lõi là:
 
 ```text
-Preview công khai chỉ chứa dữ liệu cần để phát video.
-Mọi dữ liệu nội bộ hoặc dữ liệu phụ không cần thiết phải bị loại bỏ.
-Preview cũ tạo bởi code lỗi không được dùng lại.
+Dữ liệu nội bộ của carrier gốc hoặc luồng vận hành nội bộ bị đưa ra bề mặt public/debug.
 ```
 
-## 2. Vá Hàm Tạo Preview
+Các đường lấy cờ có thể xuất hiện ở nhiều lớp:
+
+- preview H.265 giữ AUD type `35`
+- preview H.265 giữ SEI type `39/40`
+- preview H.265 giữ parameter set type `32/33/34` bị nhét trace `H5PSET`
+- preview cache cũ sinh bởi code lỗi
+- diagnostics public trả `custody_hint`
+- thumbnail public trả custody hint trong HTTP header
+- operator debug route trả marker
+- token checker yếu nếu token suy ra được từ `case_id`
+
+Vì vậy defense đúng không phải là “xóa mỗi AUD” hoặc “xóa mỗi SEI”. Defense đúng là chặn mọi đường đưa marker/custody data ra ngoài public.
+
+## 2. Vá Preview H.265
 
 ### Vá cái gì?
 
-Cần vá hàm tạo preview:
+Hàm nguy hiểm là:
 
 ```python
 def _preview_bitstream(bitstream: bytes) -> bytes:
     preview = bytearray()
     for nal in find_nals(bitstream):
-        ...
+        preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
 ```
 
-Bản lỗi copy gần như toàn bộ NAL sang preview:
-
-```python
-preview += b"\x00\x00\x00\x01" + nal
-```
-
-Điều này nguy hiểm vì nó đưa cả AUD, SEI và dấu vết gỡ lỗi ra file công khai.
+Đoạn này copy toàn bộ NAL từ carrier gốc sang preview. Như vậy AUD, SEI, parameter set giả và metadata nội bộ đều đi ra file công khai.
 
 ### Vá như nào?
 
-Không dùng kiểu vá "thấy loại nào nguy hiểm thì chặn loại đó". Ví dụ chỉ chặn AUD:
+Không lấy VPS/SPS/PPS từ carrier gốc. Chỉ lấy parameter set sạch từ template public, rồi chỉ copy VCL frame đã sanitize từ carrier:
 
 ```python
-if nal_type(nal) == 35:
-    continue
-```
+PREVIEW_SANITIZER_VERSION = "strip-metadata-v4"
+SAFE_PREVIEW_VCL_TYPES = set(range(0, 32))
+TRUSTED_PARAMETER_SET_TYPES = {32, 33, 34}
 
-Cách này chưa đủ vì SEI type `39/40` vẫn có thể leak.
+def _trusted_parameter_nals() -> tuple[bytes, ...]:
+    return tuple(
+        nal for nal in find_nals(TEMPLATE_PATH.read_bytes())
+        if nal_type(nal) in TRUSTED_PARAMETER_SET_TYPES
+    )
 
-Nên dùng danh sách cho phép:
-
-```python
-SAFE_PREVIEW_NAL_TYPES = set(range(0, 32)) | {32, 33, 34}
-```
-
-Sau đó chỉ copy các NAL nằm trong danh sách này:
-
-```python
 def _preview_bitstream(bitstream: bytes) -> bytes:
     preview = bytearray()
+    for nal in _trusted_parameter_nals():
+        preview += b"\x00\x00\x00\x01" + nal
+
     for nal in find_nals(bitstream):
-        if nal_type(nal) not in SAFE_PREVIEW_NAL_TYPES:
+        if nal_type(nal) not in SAFE_PREVIEW_VCL_TYPES:
             continue
         preview += b"\x00\x00\x00\x01" + nal
     return bytes(preview)
@@ -79,72 +66,29 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
 
 ### Tại sao vá ở đây?
 
-Vì đây là nơi dữ liệu từ file gốc riêng tư đi ra file preview công khai. Nếu chặn ở đây,
-mọi đường tải preview đều nhận file đã được làm sạch.
+Đây là điểm chuyển dữ liệu từ vùng riêng tư sang vùng public. Vá ở đây sẽ chặn cùng lúc:
 
-### Tại sao chỉ giữ các loại đó?
+- AUD leak
+- SEI leak
+- parameter set leak
+- debug NAL lạ
+- metadata phụ không cần thiết
 
-- `0..31`: các NAL chứa khung hình.
-- `32`: VPS.
-- `33`: SPS.
-- `34`: PPS.
-
-Các loại này đủ để preview vẫn là H.265 hợp lệ. Những loại khác không cần cho mục tiêu
-public preview của bài, nên không nên copy ra ngoài.
-
-## 3. Vá Đường Lộ Qua SEI Và Dấu Vết Gỡ Lỗi
+## 3. Vá Cache Preview Cũ
 
 ### Vá cái gì?
 
-Carrier có thể chứa SEI type `39/40`. Trong bài này SEI có dấu vết gỡ lỗi dạng:
-
-```text
-H5DBG || length || masked_packet
-```
-
-Nếu SEI bị copy sang preview, attacker có thể dùng `case id` để giải lại packet và lấy
-flag.
-
-### Vá như nào?
-
-Không copy SEI sang preview. Với allowlist ở trên, SEI tự động bị loại vì type `39/40`
-không nằm trong danh sách cho phép.
-
-### Tại sao vá ở đây?
-
-SEI là dữ liệu phụ. Người xem preview không cần SEI để xem nội dung CCTV đã redact. Nếu
-giữ SEI, defender phải đảm bảo mọi SEI đều sạch, rất dễ sót. Loại bỏ toàn bộ SEI khỏi
-preview công khai là cách an toàn hơn.
-
-## 4. Vá Bộ Nhớ Đệm Preview
-
-### Vá cái gì?
-
-Sau khi sửa code tạo preview, file preview cũ vẫn có thể tồn tại:
+Nếu preview lỗi đã render trước khi vá, file cũ vẫn có thể nằm trong:
 
 ```text
 PREVIEW_DIR/<case_id>_redacted_preview.h265
 ```
 
-Nếu backend chỉ kiểm tra file có tồn tại hay không, nó sẽ trả lại file cũ sinh bởi code
-lỗi.
+Nếu backend thấy file tồn tại rồi trả luôn, attacker vẫn tải được bản cũ.
 
 ### Vá như nào?
 
-Thêm phiên bản cho bộ làm sạch preview:
-
-```python
-PREVIEW_SANITIZER_VERSION = "strip-metadata-v3"
-```
-
-Khi render preview, ghi thêm file version:
-
-```python
-version_path = PREVIEW_DIR / f"{item_id}_redacted_preview.version"
-version_path.write_text(PREVIEW_SANITIZER_VERSION, encoding="utf-8")
-```
-
-Tạo hàm kiểm tra cache còn dùng được không:
+Gắn version cho bộ sanitize:
 
 ```python
 def _preview_cache_fresh(item_id: str) -> bool:
@@ -158,14 +102,13 @@ def _preview_cache_fresh(item_id: str) -> bool:
         return False
 ```
 
-Trong route tải preview, đổi từ:
+Khi render preview:
 
 ```python
-if not preview_path.exists():
-    preview_path = _render_preview(item_id)
+version_path.write_text(PREVIEW_SANITIZER_VERSION, encoding="utf-8")
 ```
 
-sang:
+Khi trả preview:
 
 ```python
 if not _preview_cache_fresh(item_id):
@@ -174,90 +117,104 @@ if not _preview_cache_fresh(item_id):
 
 ### Tại sao vá ở đây?
 
-Vì attacker không quan tâm code mới đã đúng hay chưa nếu file cũ vẫn được trả về. Bộ nhớ
-đệm cũ chính là một bản sao của lỗi. Gắn phiên bản giúp backend tự biết file nào được tạo
-bởi bộ làm sạch mới, file nào cần render lại.
+Vì code mới đúng không có nghĩa file cũ đã sạch. Cache cũ là bản sao của lỗi cũ.
 
-## 5. Giữ Route Private Đúng Chức Năng
+## 4. Vá Diagnostics Public
 
 ### Vá cái gì?
 
-Hai route này là luồng hợp lệ:
+Route này không được public:
 
 ```text
-POST /api/read
-POST /api/carrier
+/api/cases/<case_id>/diagnostics.json
 ```
 
-Chúng phải tiếp tục yêu cầu `case id` và `operator token`.
+Nó trả `custody_hint` có thể XOR ngược bằng `case_id`.
 
 ### Vá như nào?
 
-Không tắt hai route này. Chỉ đảm bảo token sai bị từ chối:
+Tắt route trong môi trường thi:
 
-```text
-token sai -> 403/forbidden
-token đúng -> checker đọc lại được flag
+```python
+def case_diagnostics(item_id: str):
+    return jsonify(ok=False, error="diagnostics disabled"), 404
 ```
 
 ### Tại sao vá ở đây?
 
-Attack-defense cần checker đặt flag và đọc lại flag. Nếu vá bằng cách tắt `/api/read`
-hoặc làm `/api/carrier` hỏng, service sẽ chết dưới checker. Defense đúng là chặn đường
-public leak, không phá luồng hợp lệ.
+Diagnostics là dữ liệu vận hành nội bộ. Public preview không cần nó.
 
-## 6. Kiểm Soát Các Endpoint Public
+## 5. Vá Header Thumbnail
 
 ### Vá cái gì?
 
-Các endpoint public có thể vẫn tồn tại:
+Thumbnail không được trả header nội bộ:
 
 ```text
-/api/cases
-/share/<share_id>
-/api/share/<share_id>/manifest.json
-/api/audit
-/api/preview-jobs
+X-H265-Custody-Mask
+X-H265-Custody-Hint
 ```
-
-Nhưng chúng không được trả dữ liệu nhạy cảm.
 
 ### Vá như nào?
 
-Các endpoint này có thể trả:
+Chỉ trả ảnh, không trả custody header:
 
-- `case id`
-- camera/source
-- trạng thái preview
-- đường dẫn preview công khai
-
-Không được trả:
-
-- token
-- flag/marker
-- raw carrier path
-- debug packet
-- đường dẫn nội bộ trong server
-- URL riêng tư có quyền tải file gốc
+```python
+return Response(body, mimetype="image/jpeg")
+```
 
 ### Tại sao vá ở đây?
 
-Trong sản phẩm thật, public share và manifest là chức năng hợp lý. Không cần tắt hết.
-Nhưng nếu các endpoint này làm lộ dữ liệu nội bộ, attacker sẽ dùng chúng để tìm đúng
-case hoặc lấy thẳng dữ liệu nhạy cảm.
+Header HTTP cũng là dữ liệu public. Đừng chỉ kiểm body response mà quên header.
 
-## 7. Bản Vá Cuối Cần Có Gì?
+## 6. Vá Operator Debug
 
-Bản vá cuối cần đủ ba phần:
+### Vá cái gì?
 
-1. Tạo preview bằng danh sách NAL được phép.
-2. Loại bỏ SEI/AUD/debug metadata khỏi preview.
-3. Không dùng lại bộ nhớ đệm preview cũ nếu file đó chưa có đúng phiên bản bộ làm sạch.
+Route debug này không được bật trong bài thi:
 
-Patch mẫu trong bài nằm ở:
+```text
+/api/operator/cases/<case_id>/debug-marker
+```
+
+### Vá như nào?
+
+Tắt route:
+
+```python
+def operator_debug_marker(item_id: str):
+    return jsonify(ok=False, error="debug marker disabled"), 404
+```
+
+Đồng thời đổi mật khẩu mặc định nếu vẫn giữ operator console.
+
+### Tại sao vá ở đây?
+
+Debug route là đường tắt đọc marker. Dù H.265 đã sạch, route debug còn bật thì attacker vẫn lấy cờ.
+
+## 7. Về Token Checker Yếu
+
+Nếu token có thể suy ra từ `case_id`, attacker có thể gọi `/api/read` như người hợp lệ. Với bài thi thật, không nên để:
+
+```text
+token = sha256("h265-ad-checker-token:" || case_id)[:32]
+```
+
+Cách đúng là token phải là dữ liệu bí mật do checker lưu, không suy ra được từ flag id public. Nếu nền tảng bắt buộc flag id public, token không được là hàm của flag id.
+
+## 8. Patch Mẫu
+
+Patch mẫu nằm ở:
 
 ```text
 solution/defense.patch
 ```
 
-Patch này sửa đúng các vị trí trên.
+Patch này vá các điểm chính trong service:
+
+- lọc preview theo VCL sạch
+- dùng parameter set sạch từ template
+- version cache preview
+- tắt diagnostics leak
+- xóa custody header ở thumbnail
+- tắt operator debug marker

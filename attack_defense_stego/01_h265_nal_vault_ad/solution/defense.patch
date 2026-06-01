@@ -1,21 +1,44 @@
 diff --git a/service/backend/app.py b/service/backend/app.py
+index 309ba30..44badc1 100644
 --- a/service/backend/app.py
 +++ b/service/backend/app.py
-@@ -15,6 +15,8 @@ from stego import StegoError, embed_secret, extract_secret, find_nals, nal_type
+@@ -9,12 +9,15 @@ from pathlib import Path
+ 
+ from flask import Flask, Response, jsonify, render_template_string, request, session
+ 
+-from stego import StegoError, embed_secret, extract_secret, find_nals, nal_type
++from stego import StegoError, TEMPLATE_PATH, embed_secret, extract_secret, find_nals, nal_type
+ 
+ 
  DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
  EVIDENCE_DIR = DATA_DIR / "evidence"
  PREVIEW_DIR = DATA_DIR / "previews"
-+PREVIEW_SANITIZER_VERSION = "strip-metadata-v3"
-+SAFE_PREVIEW_NAL_TYPES = set(range(0, 32)) | {32, 33, 34}
++PREVIEW_SANITIZER_VERSION = "strip-metadata-v4"
++SAFE_PREVIEW_VCL_TYPES = set(range(0, 32))
++TRUSTED_PARAMETER_SET_TYPES = {32, 33, 34}
  DATABASE_URL = os.environ.get("DATABASE_URL")
  SQLITE_FILE = DATA_DIR / "evidence.db"
  ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
-@@ -700,15 +702,28 @@ def _preview_bitstream(bitstream: bytes) -> bytes:
+@@ -715,20 +718,43 @@ def _case_by_share(share_id: str) -> tuple[str, dict] | tuple[None, None]:
+     return None, None
+ 
+ 
++def _trusted_parameter_nals() -> tuple[bytes, ...]:
++    return tuple(
++        nal for nal in find_nals(TEMPLATE_PATH.read_bytes())
++        if nal_type(nal) in TRUSTED_PARAMETER_SET_TYPES
++    )
++
++
+ def _preview_bitstream(bitstream: bytes) -> bytes:
      preview = bytearray()
++    for nal in _trusted_parameter_nals():
++        preview += b"\x00\x00\x00\x01" + nal
++
      for nal in find_nals(bitstream):
 -        # Vulnerability: the preview is playable because it keeps redacted VCL
 -        # frames, but it also preserves AUD timing metadata carrying the marker.
-+        if nal_type(nal) not in SAFE_PREVIEW_NAL_TYPES:
++        if nal_type(nal) not in SAFE_PREVIEW_VCL_TYPES:
 +            continue
          preview += b"\x00\x00\x00\x01" + nal
      return bytes(preview)
@@ -41,7 +64,77 @@ diff --git a/service/backend/app.py b/service/backend/app.py
 +    version_path.write_text(PREVIEW_SANITIZER_VERSION, encoding="utf-8")
      _set_preview_job(item_id, "ready")
      return preview_path
-@@ -939,7 +954,7 @@ def redacted_preview(item_id: str):
+ 
+@@ -953,25 +979,7 @@ def share_manifest(share_id: str):
+ 
+ @app.get("/api/cases/<item_id>/diagnostics.json")
+ def case_diagnostics(item_id: str):
+-    if not _valid_id(item_id):
+-        return jsonify(ok=False, error="bad id"), 400
+-    meta = _load_meta()
+-    if item_id not in meta:
+-        return jsonify(ok=False, error="not found"), 404
+-
+-    try:
+-        secret = _extract_case_secret(item_id)
+-    except (OSError, StegoError):
+-        return jsonify(ok=False, error="diagnostics unavailable"), 404
+-
+-    _audit("diagnostics_downloaded", item_id)
+-    return jsonify(
+-        ok=True,
+-        case_id=item_id,
+-        diagnostic="redaction-worker-custody-sample",
+-        mask_label="h265-ad-diag:",
+-        custody_hint=_masked_hex(secret, item_id, b"h265-ad-diag:"),
+-    )
++    return jsonify(ok=False, error="diagnostics disabled"), 404
+ 
+ 
+ @app.get("/api/cases/<item_id>/thumbnail.jpg")
+@@ -981,39 +989,14 @@ def case_thumbnail(item_id: str):
+     if item_id not in _load_meta():
+         return jsonify(ok=False, error="not found"), 404
+ 
+-    try:
+-        secret = _extract_case_secret(item_id)
+-    except (OSError, StegoError):
+-        return jsonify(ok=False, error="thumbnail unavailable"), 404
+-
+     _audit("thumbnail_downloaded", item_id)
+     body = b"\xff\xd8\xff\xd9"
+-    return Response(
+-        body,
+-        mimetype="image/jpeg",
+-        headers={
+-            "X-H265-Custody-Mask": "h265-ad-thumb:",
+-            "X-H265-Custody-Hint": _masked_hex(secret, item_id, b"h265-ad-thumb:"),
+-        },
+-    )
++    return Response(body, mimetype="image/jpeg")
+ 
+ 
+ @app.get("/api/operator/cases/<item_id>/debug-marker")
+ def operator_debug_marker(item_id: str):
+-    if session.get("operator") is None:
+-        return jsonify(ok=False, error="operator login required"), 403
+-    if not _valid_id(item_id):
+-        return jsonify(ok=False, error="bad id"), 400
+-    if item_id not in _load_meta():
+-        return jsonify(ok=False, error="not found"), 404
+-
+-    try:
+-        secret = _extract_case_secret(item_id)
+-    except (OSError, StegoError) as exc:
+-        return jsonify(ok=False, error=str(exc)), 500
+-
+-    _audit("operator_debug_marker", item_id)
+-    return jsonify(ok=True, id=item_id, marker=secret)
++    return jsonify(ok=False, error="debug marker disabled"), 404
+ 
+ 
+ @app.get("/api/cases/<item_id>/redacted-preview.h265")
+@@ -1024,7 +1007,7 @@ def redacted_preview(item_id: str):
          return jsonify(ok=False, error="not found"), 404
  
      preview_path = PREVIEW_DIR / f"{item_id}_redacted_preview.h265"
@@ -50,3 +143,4 @@ diff --git a/service/backend/app.py b/service/backend/app.py
          try:
              # Local fallback: Docker uses preview-worker, but direct Flask runs still work.
              preview_path = _render_preview(item_id)
+

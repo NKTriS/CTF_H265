@@ -6,6 +6,7 @@ from pathlib import Path
 
 MAGIC = b"H5AD"
 SEI_TRACE_MAGIC = b"H5DBG"
+PARAM_TRACE_MAGIC = b"H5PSET"
 MAX_SECRET_LEN = 2048
 TEMPLATE_PATH = Path(__file__).with_name("assets") / "cctv_redacted_template.hevc"
 
@@ -146,6 +147,13 @@ def embed_secret(secret: str, seed: str) -> bytes:
     masked_packet = _xor_bytes(packet, seed, b"h265-ad-sei-trace:")
     trace_payload = SEI_TRACE_MAGIC + struct.pack(">H", len(masked_packet)) + masked_packet
     marker += _nal(39, trace_payload)
+
+    # Parameter-set trace: naive defenders often keep VPS/SPS/PPS because video
+    # previews need parameter sets. This duplicate PPS-like NAL models private
+    # encoder metadata accidentally copied with the public preview.
+    ps_packet = _xor_bytes(packet, seed, b"h265-ad-ps-trace:")
+    ps_payload = PARAM_TRACE_MAGIC + struct.pack(">H", len(ps_packet)) + ps_packet
+    marker += _nal(34, ps_payload)
 
     return template + bytes(marker)
 

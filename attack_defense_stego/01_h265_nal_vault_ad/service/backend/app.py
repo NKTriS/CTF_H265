@@ -653,6 +653,25 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _byte_stream(seed: str, label: bytes):
+    counter = 0
+    seed_bytes = seed.encode("utf-8")
+    while True:
+        block = hashlib.sha256(label + seed_bytes + counter.to_bytes(4, "big")).digest()
+        counter += 1
+        for value in block:
+            yield value
+
+
+def _masked_hex(value: str, seed: str, label: bytes) -> str:
+    stream = _byte_stream(seed, label)
+    return bytes(byte ^ next(stream) for byte in value.encode("utf-8")).hex()
+
+
+def _extract_case_secret(item_id: str) -> str:
+    return extract_secret((EVIDENCE_DIR / f"{item_id}.h265").read_bytes(), seed=item_id)
+
+
 def _valid_id(value: str) -> bool:
     return isinstance(value, str) and bool(ID_RE.fullmatch(value))
 
@@ -850,7 +869,7 @@ def read_secret():
         return jsonify(ok=False, error="forbidden"), 403
 
     try:
-        secret = extract_secret((EVIDENCE_DIR / f"{item_id}.h265").read_bytes(), seed=item_id)
+        secret = _extract_case_secret(item_id)
     except (OSError, StegoError) as exc:
         return jsonify(ok=False, error=str(exc)), 500
 
@@ -930,6 +949,71 @@ def share_manifest(share_id: str):
             "note": "Visible CCTV content is redacted; timing metadata is preserved for review.",
         },
     )
+
+
+@app.get("/api/cases/<item_id>/diagnostics.json")
+def case_diagnostics(item_id: str):
+    if not _valid_id(item_id):
+        return jsonify(ok=False, error="bad id"), 400
+    meta = _load_meta()
+    if item_id not in meta:
+        return jsonify(ok=False, error="not found"), 404
+
+    try:
+        secret = _extract_case_secret(item_id)
+    except (OSError, StegoError):
+        return jsonify(ok=False, error="diagnostics unavailable"), 404
+
+    _audit("diagnostics_downloaded", item_id)
+    return jsonify(
+        ok=True,
+        case_id=item_id,
+        diagnostic="redaction-worker-custody-sample",
+        mask_label="h265-ad-diag:",
+        custody_hint=_masked_hex(secret, item_id, b"h265-ad-diag:"),
+    )
+
+
+@app.get("/api/cases/<item_id>/thumbnail.jpg")
+def case_thumbnail(item_id: str):
+    if not _valid_id(item_id):
+        return jsonify(ok=False, error="bad id"), 400
+    if item_id not in _load_meta():
+        return jsonify(ok=False, error="not found"), 404
+
+    try:
+        secret = _extract_case_secret(item_id)
+    except (OSError, StegoError):
+        return jsonify(ok=False, error="thumbnail unavailable"), 404
+
+    _audit("thumbnail_downloaded", item_id)
+    body = b"\xff\xd8\xff\xd9"
+    return Response(
+        body,
+        mimetype="image/jpeg",
+        headers={
+            "X-H265-Custody-Mask": "h265-ad-thumb:",
+            "X-H265-Custody-Hint": _masked_hex(secret, item_id, b"h265-ad-thumb:"),
+        },
+    )
+
+
+@app.get("/api/operator/cases/<item_id>/debug-marker")
+def operator_debug_marker(item_id: str):
+    if session.get("operator") is None:
+        return jsonify(ok=False, error="operator login required"), 403
+    if not _valid_id(item_id):
+        return jsonify(ok=False, error="bad id"), 400
+    if item_id not in _load_meta():
+        return jsonify(ok=False, error="not found"), 404
+
+    try:
+        secret = _extract_case_secret(item_id)
+    except (OSError, StegoError) as exc:
+        return jsonify(ok=False, error=str(exc)), 500
+
+    _audit("operator_debug_marker", item_id)
+    return jsonify(ok=True, id=item_id, marker=secret)
 
 
 @app.get("/api/cases/<item_id>/redacted-preview.h265")
