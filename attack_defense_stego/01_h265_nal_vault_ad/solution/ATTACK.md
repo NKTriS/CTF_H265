@@ -92,8 +92,6 @@ python -c "from pathlib import Path; import sys; sys.path.insert(0,'solution'); 
 
 Nếu số in ra lớn hơn `0`, preview vẫn còn AUD. Đây là dấu hiệu tốt cho hướng khai thác đầu tiên.
 
-### Vì Sao Lấy Được Cờ?
-
 AUD là viết tắt của Access Unit Delimiter. Bình thường AUD chỉ giúp đánh dấu ranh giới đơn vị truy cập trong luồng video. Ở bài này, service lạm dụng AUD để nhét bit của flag vào trường `primary_pic_type`.
 
 Với mỗi AUD, attacker đọc bit như sau:
@@ -324,8 +322,6 @@ python -c "from pathlib import Path; import sys; sys.path.insert(0,'solution'); 
 
 Nếu type `39` hoặc `40` lớn hơn `0`, preview vẫn còn SEI.
 
-### Vì Sao Lấy Được Cờ?
-
 SEI là vùng dữ liệu phụ trong H.265. Nó thường dùng để chứa thông tin bổ sung cho bộ giải mã, metadata, hoặc thông tin phụ do phần mềm thêm vào.
 
 Trong bài này, backend để sót một trace gỡ lỗi trong SEI:
@@ -500,8 +496,6 @@ Kiểm tra nhanh:
 python -c "from pathlib import Path; import sys; sys.path.insert(0,'solution'); from exploit import find_nals,nal_type; data=Path('preview.h265').read_bytes(); print({t:sum(1 for n in find_nals(data) if nal_type(n)==t) for t in (32,33,34)})"
 ```
 
-### Vì Sao Lấy Được Cờ?
-
 Trong bản nới lỏng cho bài thi, carrier có thêm một PPS-like NAL type `34` chứa trace:
 
 ```text
@@ -621,8 +615,6 @@ for nal in find_nals(data):
 
 Dùng hướng này khi người chơi biết `case_id` và biết cách checker tạo token. Trong bài hiện tại, nếu flag id được hệ thống truyền cho checker, token có thể được sinh lại từ `case_id`.
 
-### Vì Sao Lấy Được Cờ?
-
 Checker tạo token theo công thức cố định:
 
 ```text
@@ -663,8 +655,6 @@ Dùng khi endpoint diagnostics còn public:
 ```text
 /api/cases/<case_id>/diagnostics.json
 ```
-
-### Vì Sao Lấy Được Cờ?
 
 Endpoint này không trả flag thẳng, nhưng trả `custody_hint` bị XOR bằng dòng byte sinh từ `case_id`.
 
@@ -718,8 +708,6 @@ Dùng khi thumbnail public còn trả header nội bộ:
 /api/cases/<case_id>/thumbnail.jpg
 ```
 
-### Vì Sao Lấy Được Cờ?
-
 Response header có:
 
 ```text
@@ -761,8 +749,6 @@ Route debug:
 /api/operator/cases/<case_id>/debug-marker
 ```
 
-### Vì Sao Lấy Được Cờ?
-
 Đây là lỗi vận hành/service: route debug đáng ra chỉ dành cho nội bộ hoặc không được deploy trong môi trường thi. Nhưng nếu còn bật, attacker đăng nhập operator bằng mật khẩu mặc định rồi đọc marker.
 
 ### Lệnh Khai Thác
@@ -788,8 +774,6 @@ Dùng hướng này sau khi defender đã vá code nhưng service vẫn trả fi
 - preview lỗi đã được render trước khi vá
 - file cũ vẫn nằm trong cache
 - backend thấy file có sẵn thì trả luôn, không tạo lại bản sạch
-
-### Vì Sao Lấy Được Cờ?
 
 Preview cũ là file đã sinh bởi code lỗi. Dù source hiện tại đã vá, file cũ vẫn có thể chứa AUD hoặc SEI leak.
 
