@@ -1,8 +1,8 @@
-diff --git a/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py b/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py
-index 309ba30..44badc1 100644
---- a/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py
-+++ b/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py
-@@ -9,12 +9,15 @@ from pathlib import Path
+diff --git a/service/backend/app.py b/service/backend/app.py
+index e19de28..7d01198 100644
+--- a/service/backend/app.py
++++ b/service/backend/app.py
+@@ -9,13 +9,16 @@ from pathlib import Path
  
  from flask import Flask, Response, jsonify, render_template_string, request, session
  
@@ -13,13 +13,14 @@ index 309ba30..44badc1 100644
  DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
  EVIDENCE_DIR = DATA_DIR / "evidence"
  PREVIEW_DIR = DATA_DIR / "previews"
+ FRONT_INDEX_PATH = Path(__file__).resolve().parents[1] / "front" / "index.html"
 +PREVIEW_SANITIZER_VERSION = "strip-metadata-v4"
 +SAFE_PREVIEW_VCL_TYPES = set(range(0, 32))
 +TRUSTED_PARAMETER_SET_TYPES = {32, 33, 34}
  DATABASE_URL = os.environ.get("DATABASE_URL")
  SQLITE_FILE = DATA_DIR / "evidence.db"
  ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
-@@ -715,20 +718,43 @@ def _case_by_share(share_id: str) -> tuple[str, dict] | tuple[None, None]:
+@@ -717,20 +720,43 @@ def _case_by_share(share_id: str) -> tuple[str, dict] | tuple[None, None]:
      return None, None
  
  
@@ -65,7 +66,7 @@ index 309ba30..44badc1 100644
      _set_preview_job(item_id, "ready")
      return preview_path
  
-@@ -953,25 +979,7 @@ def share_manifest(share_id: str):
+@@ -958,25 +984,7 @@ def share_manifest(share_id: str):
  
  @app.get("/api/cases/<item_id>/diagnostics.json")
  def case_diagnostics(item_id: str):
@@ -92,7 +93,7 @@ index 309ba30..44badc1 100644
  
  
  @app.get("/api/cases/<item_id>/thumbnail.jpg")
-@@ -981,39 +989,14 @@ def case_thumbnail(item_id: str):
+@@ -986,39 +994,14 @@ def case_thumbnail(item_id: str):
      if item_id not in _load_meta():
          return jsonify(ok=False, error="not found"), 404
  
@@ -134,7 +135,7 @@ index 309ba30..44badc1 100644
  
  
  @app.get("/api/cases/<item_id>/redacted-preview.h265")
-@@ -1024,7 +1007,7 @@ def redacted_preview(item_id: str):
+@@ -1029,7 +1012,7 @@ def redacted_preview(item_id: str):
          return jsonify(ok=False, error="not found"), 404
  
      preview_path = PREVIEW_DIR / f"{item_id}_redacted_preview.h265"

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,8 +11,10 @@
       --ink: #172033;
       --muted: #5d6b82;
       --line: #d8dfeb;
+      --soft: #eef4f8;
       --accent: #0f766e;
       --accent-dark: #115e59;
+      --warn: #a16207;
       --code: #111827;
     }
     * { box-sizing: border-box; }
@@ -27,7 +29,7 @@
       border-bottom: 1px solid var(--line);
     }
     .wrap {
-      width: min(1180px, calc(100% - 32px));
+      width: min(1240px, calc(100% - 32px));
       margin: 0 auto;
     }
     .topbar {
@@ -39,21 +41,15 @@
     }
     h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
     h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 0; }
-    main { padding: 24px 0 42px; }
-    section {
+    h3 { margin: 0 0 8px; font-size: 15px; letter-spacing: 0; }
+    main { padding: 22px 0 42px; }
+    section, .panel {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 18px;
       box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
     }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-      align-items: start;
-    }
-    .wide { margin-top: 16px; }
     .muted { color: var(--muted); margin: 0 0 14px; }
     .status {
       display: inline-flex;
@@ -61,8 +57,37 @@
       gap: 8px;
       color: var(--accent-dark);
       font-weight: 800;
+      white-space: nowrap;
     }
     .dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .metric {
+      min-height: 86px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .metric strong { display: block; margin-top: 6px; font-size: 24px; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .stack { display: grid; gap: 16px; }
     .row {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -84,12 +109,13 @@
       background: #fff;
       font: inherit;
       outline: none;
+      min-height: 42px;
     }
     input:focus, select:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(15, 118, 110, .12);
     }
-    button, .button {
+    button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -100,14 +126,14 @@
       padding: 10px 14px;
       margin-top: 14px;
       font-weight: 800;
-      text-decoration: none;
       cursor: pointer;
       min-height: 40px;
     }
-    button:hover, .button:hover { background: var(--accent-dark); }
+    button:hover { background: var(--accent-dark); }
     pre {
-      margin: 14px 0 0;
-      min-height: 110px;
+      margin: 12px 0 0;
+      min-height: 96px;
+      max-height: 240px;
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -125,27 +151,73 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 13px;
     }
-    .case-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 14px;
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
     }
-    .case {
+    .tab {
       border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 12px;
-      background: #fbfdff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fff;
+      color: var(--muted);
+      font-weight: 800;
     }
-    .case strong { display: block; margin-bottom: 4px; }
-    .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .tab.active { color: var(--accent-dark); background: #e9f7f4; border-color: #b8ddd8; }
+    .case-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .case-table th, .case-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+    }
+    .case-table th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--accent-dark);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .warn { color: var(--warn); }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; }
     .links a {
       color: var(--accent-dark);
       font-weight: 800;
       text-decoration: none;
     }
-    @media (max-width: 780px) {
-      .grid, .row { grid-template-columns: 1fr; }
+    .empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+    @media (max-width: 920px) {
+      .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .dashboard, .row { grid-template-columns: 1fr; }
       .topbar { flex-direction: column; align-items: flex-start; padding: 18px 0; }
+      .case-table { min-width: 760px; }
+      .table-scroll { overflow-x: auto; }
     }
   </style>
 </head>
@@ -154,95 +226,139 @@
     <div class="wrap topbar">
       <div>
         <h1>H265 Evidence Portal</h1>
-        <div class="muted">CCTV intake, redaction review, public evidence share, and HEVC custody markers.</div>
+        <div class="muted">Quản lý chứng cứ CCTV đã redact, public share và custody marker HEVC.</div>
       </div>
-      <div class="status"><span class="dot"></span> Service online</div>
+      <div class="status"><span class="dot"></span> Dịch vụ đang hoạt động</div>
     </div>
   </header>
 
   <main class="wrap">
-    <section>
-      <h2>Operator Console</h2>
-      <p class="muted">Frontend, backend, and database are separate services. Operators review cameras and publish redacted shares.</p>
-      <form id="loginForm">
+    <div class="dashboard">
+      <div class="metric"><span>Case công khai</span><strong id="caseCount">0</strong></div>
+      <div class="metric"><span>Nguồn CCTV</span><strong id="cameraCount">0</strong></div>
+      <div class="metric"><span>Preview jobs</span><strong id="jobCount">0</strong></div>
+      <div class="metric"><span>Operator</span><strong id="operatorState">Guest</strong></div>
+    </div>
+
+    <div class="layout">
+      <div class="stack">
+        <section>
+          <h2>Operator Session</h2>
+          <p class="muted">Phiên vận hành dùng để review camera source và mở các thao tác nội bộ.</p>
+          <form id="loginForm">
+            <div class="row">
+              <div>
+                <label for="loginUser">Username</label>
+                <input id="loginUser" autocomplete="off" placeholder="triage">
+              </div>
+              <div>
+                <label for="loginPass">Password</label>
+                <input id="loginPass" autocomplete="off" type="password" placeholder="triage-2026">
+              </div>
+            </div>
+            <button type="submit">Đăng nhập operator</button>
+          </form>
+          <pre id="operatorOut">Chưa có phiên operator.</pre>
+        </section>
+
+        <section>
+          <h2>Import CCTV Evidence</h2>
+          <p class="muted">Tạo case từ camera source, gắn custody marker và sinh redacted preview cho public review.</p>
+          <form id="storeForm">
+            <label for="storeId">Case ID</label>
+            <input id="storeId" autocomplete="off" placeholder="case_2026_001" required>
+
+            <label for="storeToken">Operator Token</label>
+            <input id="storeToken" autocomplete="off" placeholder="ít nhất 8 ký tự" required>
+
+            <label for="storeSource">CCTV Source</label>
+            <select id="storeSource"></select>
+
+            <div class="row">
+              <div>
+                <label for="evidenceStart">Thời gian bắt đầu</label>
+                <input id="evidenceStart" autocomplete="off" placeholder="2026-06-02 09:00">
+              </div>
+              <div>
+                <label for="evidenceEnd">Thời gian kết thúc</label>
+                <input id="evidenceEnd" autocomplete="off" placeholder="2026-06-02 09:15">
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label for="redactionLevel">Redaction profile</label>
+                <select id="redactionLevel">
+                  <option>standard-public</option>
+                  <option>faces-and-badges</option>
+                  <option>plates-and-faces</option>
+                  <option>manual-review</option>
+                </select>
+              </div>
+              <div>
+                <label for="casePriority">Priority</label>
+                <select id="casePriority">
+                  <option>normal</option>
+                  <option>urgent</option>
+                  <option>legal-hold</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit">Nhập chứng cứ</button>
+          </form>
+          <pre id="storeOut">Chưa có yêu cầu import.</pre>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section>
+          <div class="tabs">
+            <div class="tab active">Evidence Cases</div>
+            <div class="tab">Public Shares</div>
+            <div class="tab">Preview Queue</div>
+          </div>
+          <div class="table-scroll" id="caseOut">
+            <div class="empty">Chưa có case công khai.</div>
+          </div>
+        </section>
+
         <div class="row">
-          <div>
-            <label for="loginUser">Operator</label>
-            <input id="loginUser" autocomplete="off" placeholder="triage">
-          </div>
-          <div>
-            <label for="loginPass">Password</label>
-            <input id="loginPass" autocomplete="off" type="password" placeholder="triage-2026">
-          </div>
-        </div>
-        <button type="submit">Open operator session</button>
-      </form>
-      <pre id="operatorOut">No operator session.</pre>
-    </section>
-
-    <div class="grid wide">
-      <section>
-        <h2>Import CCTV Evidence</h2>
-        <p class="muted">The backend stores a raw HEVC carrier and attaches an internal custody marker.</p>
-        <form id="storeForm">
-          <div class="row">
-            <div>
-              <label for="storeId">Case ID</label>
-              <input id="storeId" autocomplete="off" placeholder="case_2026_001" required>
-            </div>
-            <div>
-              <label for="storeToken">Operator Token</label>
-              <input id="storeToken" autocomplete="off" placeholder="at least 8 characters" required>
-            </div>
-          </div>
-          <label for="storeSource">CCTV Source</label>
-          <select id="storeSource"></select>
-          <button type="submit">Import evidence</button>
-        </form>
-        <pre id="storeOut">No request yet.</pre>
-      </section>
-
-      <section>
-        <h2>Verify Custody Marker</h2>
-        <p class="muted">Authorized verification requires the correct <code>case id</code> and <code>operator token</code>.</p>
-        <form id="readForm">
-          <div class="row">
-            <div>
+          <section>
+            <h2>Verify Custody Marker</h2>
+            <p class="muted">Luồng hợp lệ vẫn cần đúng <code>Case ID</code> và <code>Operator Token</code>.</p>
+            <form id="readForm">
               <label for="readId">Case ID</label>
               <input id="readId" autocomplete="off" required>
-            </div>
-            <div>
               <label for="readToken">Operator Token</label>
               <input id="readToken" autocomplete="off" required>
-            </div>
-          </div>
-          <button type="submit">Verify marker</button>
-        </form>
-        <pre id="readOut">No request yet.</pre>
-      </section>
+              <button type="submit">Xác minh marker</button>
+            </form>
+            <pre id="readOut">Chưa có yêu cầu verify.</pre>
+          </section>
+
+          <section>
+            <h2>Camera Registry</h2>
+            <p class="muted">Danh sách source đang được phép import vào portal.</p>
+            <pre id="cameraOut">Đang tải camera registry...</pre>
+          </section>
+        </div>
+
+        <div class="row">
+          <section>
+            <h2>Preview Worker</h2>
+            <p class="muted">Theo dõi hàng đợi render redacted preview.</p>
+            <pre id="jobOut">Đang tải preview jobs...</pre>
+          </section>
+
+          <section>
+            <h2>Audit Trail</h2>
+            <p class="muted">Sự kiện gần đây của operator, import, preview và share.</p>
+            <pre id="auditOut">Đang tải audit trail...</pre>
+          </section>
+        </div>
+      </div>
     </div>
-
-    <div class="grid wide">
-      <section>
-        <h2>Camera Registry</h2>
-        <pre id="cameraOut">Loading cameras...</pre>
-      </section>
-      <section>
-        <h2>Preview Worker Queue</h2>
-        <pre id="jobOut">Loading preview jobs...</pre>
-      </section>
-    </div>
-
-    <section class="wide">
-      <h2>Audit Trail</h2>
-      <pre id="auditOut">Loading audit...</pre>
-    </section>
-
-    <section class="wide">
-      <h2>Public Redacted Shares</h2>
-      <p class="muted">Public preview links are intended for review after visible CCTV detail has been redacted.</p>
-      <div id="caseOut" class="case-list">Loading cases...</div>
-    </section>
   </main>
 
   <script>
@@ -254,48 +370,75 @@
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
       });
-      const data = await res.json().catch(() => ({ok: false, error: "bad json"}));
+      const data = await res.json().catch(() => ({ok: false, error: "json không hợp lệ"}));
       return {status: res.status, data};
     }
 
     async function getJson(path) {
       const res = await fetch(path);
-      const data = await res.json().catch(() => ({ok: false, error: "bad json"}));
+      const data = await res.json().catch(() => ({ok: false, error: "json không hợp lệ"}));
       return {status: res.status, data};
+    }
+
+    function shortTime(ts) {
+      if (!ts) return "-";
+      const date = new Date(ts * 1000);
+      return Number.isNaN(date.getTime()) ? String(ts) : date.toLocaleString();
     }
 
     function renderCases(items) {
       const target = document.getElementById("caseOut");
+      document.getElementById("caseCount").textContent = String(items.length);
       if (!items.length) {
-        target.textContent = "No public cases yet.";
+        target.innerHTML = '<div class="empty">Chưa có case công khai.</div>';
         return;
       }
-      target.innerHTML = "";
-      for (const item of items) {
-        const div = document.createElement("div");
-        div.className = "case";
-        div.innerHTML = `
-          <strong>${item.id}</strong>
-          <div>${item.camera} · ${item.zone} · ${item.redaction_profile}</div>
-          <div class="links">
-            <a href="${item.share_url}">share</a>
-            <a href="${item.manifest_url}">manifest</a>
-            <a href="${item.preview_url}">preview.h265</a>
-          </div>
-        `;
-        target.appendChild(div);
-      }
+      const rows = items.map((item) => `
+        <tr>
+          <td><strong>${item.id}</strong><br><span class="muted">${item.source || "-"}</span></td>
+          <td>${item.camera || "-"}<br><span class="muted">${item.zone || "-"}</span></td>
+          <td><span class="badge">${item.status || "redacted"}</span><br><span class="muted">${item.redaction_profile || "-"}</span></td>
+          <td>${shortTime(item.created_at)}<br><span class="muted">${item.reviewed_by || "checker_bot"}</span></td>
+          <td><span class="badge">${item.preview_job || "queued"}</span></td>
+          <td>
+            <div class="links">
+              <a href="${item.case_url}">case</a>
+              <a href="${item.share_url}">share</a>
+              <a href="${item.manifest_url}">manifest</a>
+              <a href="${item.preview_url}">preview.h265</a>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+      target.innerHTML = `
+        <table class="case-table">
+          <thead>
+            <tr>
+              <th>Case ID</th>
+              <th>Camera</th>
+              <th>Redaction</th>
+              <th>Created</th>
+              <th>Preview</th>
+              <th>Public artifacts</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
     }
 
     async function refreshPortal() {
       const me = await getJson("/api/operator/me");
       document.getElementById("operatorOut").textContent = json(me);
+      document.getElementById("operatorState").textContent = me.data.authenticated ? me.data.operator : "Guest";
 
       const cameras = await getJson("/api/cameras");
+      const cameraItems = cameras.data.cameras || [];
+      document.getElementById("cameraCount").textContent = String(cameraItems.length);
       document.getElementById("cameraOut").textContent = json(cameras);
       const select = document.getElementById("storeSource");
       select.innerHTML = "";
-      for (const camera of cameras.data.cameras || []) {
+      for (const camera of cameraItems) {
         const option = document.createElement("option");
         option.value = camera.id;
         option.textContent = `${camera.name} (${camera.zone})`;
@@ -304,7 +447,10 @@
 
       const cases = await getJson("/api/cases");
       renderCases(cases.data.items || []);
-      document.getElementById("jobOut").textContent = json(await getJson("/api/preview-jobs"));
+
+      const jobs = await getJson("/api/preview-jobs");
+      document.getElementById("jobCount").textContent = String((jobs.data.jobs || []).length);
+      document.getElementById("jobOut").textContent = json(jobs);
       document.getElementById("auditOut").textContent = json(await getJson("/api/audit"));
     }
 
@@ -325,7 +471,15 @@
         source: document.getElementById("storeSource").value,
       };
       const result = await postJson("/api/store", body);
-      document.getElementById("storeOut").textContent = json(result);
+      document.getElementById("storeOut").textContent = json({
+        ...result,
+        form_context: {
+          started_at: document.getElementById("evidenceStart").value || null,
+          ended_at: document.getElementById("evidenceEnd").value || null,
+          redaction_profile: document.getElementById("redactionLevel").value,
+          priority: document.getElementById("casePriority").value,
+        },
+      });
       if (result.data.ok) {
         document.getElementById("readId").value = body.id;
         document.getElementById("readToken").value = body.token;

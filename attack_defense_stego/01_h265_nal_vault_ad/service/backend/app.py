@@ -15,6 +15,7 @@ from stego import StegoError, embed_secret, extract_secret, find_nals, nal_type
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 EVIDENCE_DIR = DATA_DIR / "evidence"
 PREVIEW_DIR = DATA_DIR / "previews"
+FRONT_INDEX_PATH = Path(__file__).resolve().parents[1] / "front" / "index.html"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 SQLITE_FILE = DATA_DIR / "evidence.db"
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
@@ -33,32 +34,32 @@ OPERATORS = {
 
 CAMERAS = {
     "lobby_cam_01": {
-        "name": "Lobby camera 01",
-        "zone": "Main lobby",
+        "name": "Camera sảnh 01",
+        "zone": "Sảnh chính",
         "codec": "HEVC/H.265",
-        "retention": "14 days",
-        "public_redaction": "faces+badges",
+        "retention": "14 ngày",
+        "public_redaction": "che mặt + thẻ nhân viên",
     },
     "parking_gate_02": {
-        "name": "Parking gate 02",
-        "zone": "Parking gate",
+        "name": "Camera cổng xe 02",
+        "zone": "Cổng bãi xe",
         "codec": "HEVC/H.265",
-        "retention": "7 days",
-        "public_redaction": "plates+faces",
+        "retention": "7 ngày",
+        "public_redaction": "che biển số + khuôn mặt",
     },
     "evidence_upload": {
-        "name": "Uploaded evidence stream",
-        "zone": "External upload",
+        "name": "Luồng chứng cứ tải lên",
+        "zone": "Nguồn ngoài hệ thống",
         "codec": "HEVC/H.265",
-        "retention": "manual review",
-        "public_redaction": "operator selected",
+        "retention": "duyệt thủ công",
+        "public_redaction": "theo lựa chọn người vận hành",
     },
 }
 
 
 INDEX_HTML = r"""
 <!doctype html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -221,38 +222,38 @@ INDEX_HTML = r"""
     <div class="wrap topbar">
       <div>
         <h1>H265 Evidence Portal</h1>
-        <div class="muted">CCTV case intake, custody verification, public redaction review, and HEVC custody markers.</div>
+        <div class="muted">Tiếp nhận vụ việc CCTV, xác minh chuỗi lưu giữ, duyệt bản che thông tin và đánh dấu chứng cứ HEVC.</div>
       </div>
-      <div class="status"><span class="dot"></span> Service online</div>
+      <div class="status"><span class="dot"></span> Dịch vụ đang hoạt động</div>
     </div>
   </header>
   <main class="wrap">
     <section class="wide" style="margin-top:0;margin-bottom:18px">
-      <h2>Operator Console</h2>
-      <p class="muted">Operators review camera sources and publish redacted evidence links. Checker traffic can still use the API directly.</p>
+      <h2>Bảng điều khiển vận hành</h2>
+      <p class="muted">Nhân sự vận hành rà soát nguồn camera và xuất bản liên kết chứng cứ đã che thông tin. Checker vẫn có thể kiểm tra dịch vụ qua API trực tiếp.</p>
       <form id="loginForm">
         <div class="row">
           <div>
-            <label for="loginUser">Operator</label>
+            <label for="loginUser">Tài khoản vận hành</label>
             <input id="loginUser" autocomplete="off" placeholder="triage">
           </div>
           <div>
-            <label for="loginPass">Password</label>
+            <label for="loginPass">Mật khẩu</label>
             <input id="loginPass" autocomplete="off" type="password" placeholder="triage-2026">
           </div>
         </div>
-        <button type="submit">Open operator session</button>
+        <button type="submit">Mở phiên vận hành</button>
       </form>
       <div class="feed">
-        <pre id="operatorOut">No operator session.</pre>
-        <pre id="cameraOut">Loading cameras...</pre>
+        <pre id="operatorOut">Chưa có phiên vận hành.</pre>
+        <pre id="cameraOut">Đang tải danh sách camera...</pre>
       </div>
     </section>
 
     <div class="grid">
       <section>
-        <h2>Import CCTV Evidence</h2>
-        <p class="muted">Import a camera stream into evidence storage. The portal attaches an internal custody marker and prepares a redacted public share.</p>
+        <h2>Nhập chứng cứ CCTV</h2>
+        <p class="muted">Nhập luồng camera vào kho chứng cứ. Cổng sẽ gắn dấu chuỗi lưu giữ nội bộ và chuẩn bị bản chia sẻ công khai đã che thông tin.</p>
         <form id="storeForm">
           <div class="row">
             <div>
@@ -261,19 +262,19 @@ INDEX_HTML = r"""
             </div>
             <div>
               <label for="storeToken">Operator Token</label>
-              <input id="storeToken" autocomplete="off" placeholder="at least 8 characters" required>
+              <input id="storeToken" autocomplete="off" placeholder="ít nhất 8 ký tự" required>
             </div>
           </div>
         <label for="storeSource">CCTV Source</label>
           <select id="storeSource"></select>
-          <button type="submit">Import evidence</button>
+          <button type="submit">Nhập chứng cứ</button>
         </form>
-        <pre id="storeOut">No request yet.</pre>
+        <pre id="storeOut">Chưa có yêu cầu.</pre>
       </section>
 
       <section>
-        <h2>Verify Custody Marker</h2>
-        <p class="muted">The authorized flow requires the correct <code>case id</code> and <code>operator token</code>.</p>
+        <h2>Xác minh dấu chuỗi lưu giữ</h2>
+        <p class="muted">Luồng xác minh hợp lệ cần đúng <code>Case ID</code> và <code>Operator Token</code>.</p>
         <form id="readForm">
           <div class="row">
             <div>
@@ -285,28 +286,28 @@ INDEX_HTML = r"""
               <input id="readToken" autocomplete="off" required>
             </div>
           </div>
-          <button type="submit">Verify marker</button>
+          <button type="submit">Xác minh dấu</button>
         </form>
-        <pre id="readOut">No request yet.</pre>
+        <pre id="readOut">Chưa có yêu cầu.</pre>
       </section>
     </div>
 
     <section class="wide">
-      <h2>Redacted Public Preview</h2>
-      <p class="muted">Public previews are playable redacted CCTV exports. The backend keeps timing metadata while replacing the raw evidence with a sanitized camera stream.</p>
+      <h2>Bản xem trước công khai đã che thông tin</h2>
+      <p class="muted">Bản xem trước công khai là luồng CCTV đã che thông tin và vẫn phát được. Backend giữ metadata thời gian trong khi thay nội dung gốc bằng luồng camera đã xử lý.</p>
       <div class="routes">
         <div class="route"><strong>Health</strong><code>GET /health</code></div>
         <div class="route"><strong>Store</strong><code>POST /api/store</code></div>
         <div class="route"><strong>Read</strong><code>POST /api/read</code></div>
-        <div class="route"><strong>Recent</strong><code>GET /api/cases</code></div>
-        <div class="route"><strong>Case</strong><code>GET /case/&lt;id&gt;</code></div>
-        <div class="route"><strong>Share</strong><code>GET /share/&lt;share&gt;</code></div>
+        <div class="route"><strong>Recent cases</strong><code>GET /api/cases</code></div>
+        <div class="route"><strong>Case page</strong><code>GET /case/&lt;id&gt;</code></div>
+        <div class="route"><strong>Share page</strong><code>GET /share/&lt;share&gt;</code></div>
         <div class="route"><strong>Preview</strong><code>GET /api/cases/&lt;id&gt;/redacted-preview.h265</code></div>
       </div>
-      <p class="muted" style="margin-top:14px">The backend assumes the preview is safe because visible CCTV detail has been redacted.</p>
+      <p class="muted" style="margin-top:14px">Backend giả định bản xem trước là an toàn vì chi tiết CCTV nhìn thấy đã được che.</p>
       <div class="feed">
-        <pre id="caseOut">Loading public cases...</pre>
-        <pre id="auditOut">Loading audit trail...</pre>
+        <pre id="caseOut">Đang tải vụ việc công khai...</pre>
+        <pre id="auditOut">Đang tải nhật ký kiểm toán...</pre>
       </div>
     </section>
   </main>
@@ -319,13 +320,13 @@ INDEX_HTML = r"""
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
       });
-      const data = await res.json().catch(() => ({ok: false, error: "bad json"}));
+      const data = await res.json().catch(() => ({ok: false, error: "json không hợp lệ"}));
       return {status: res.status, data};
     }
 
     async function getJson(path) {
       const res = await fetch(path);
-      const data = await res.json().catch(() => ({ok: false, error: "bad json"}));
+      const data = await res.json().catch(() => ({ok: false, error: "json không hợp lệ"}));
       return {status: res.status, data};
     }
 
@@ -393,7 +394,7 @@ INDEX_HTML = r"""
 
 CASE_HTML = r"""
 <!doctype html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -436,12 +437,12 @@ CASE_HTML = r"""
 <body>
   <main>
     <h1>Evidence case: {{ item_id }}</h1>
-    <p>Source: <code>{{ public_case.camera }}</code> in <code>{{ public_case.zone }}</code></p>
-    <p>Status: <code>{{ public_case.status }}</code> · Redaction: <code>{{ public_case.redaction_profile }}</code></p>
-    <p>This public redacted preview uses a sanitized HEVC CCTV stream. It is intended for structure review without exposing the raw evidence stream.</p>
+    <p>Nguồn: <code>{{ public_case.camera }}</code> tại <code>{{ public_case.zone }}</code></p>
+    <p>Trạng thái: <code>{{ public_case.status }}</code> · Kiểu che: <code>{{ public_case.redaction_profile }}</code></p>
+    <p>Bản xem trước công khai dùng luồng CCTV HEVC đã xử lý. Tệp này dùng để rà soát cấu trúc mà không công khai luồng chứng cứ gốc.</p>
     <p>Preview endpoint: <code>/api/cases/{{ item_id }}/redacted-preview.h265</code></p>
-    <a href="/api/cases/{{ item_id }}/redacted-preview.h265">Download redacted preview</a>
-    <a href="{{ public_case.manifest_url }}" style="margin-left:8px;background:#334155">Open manifest</a>
+    <a href="/api/cases/{{ item_id }}/redacted-preview.h265">Tải bản xem trước đã che</a>
+    <a href="{{ public_case.manifest_url }}" style="margin-left:8px;background:#334155">Mở manifest</a>
   </main>
 </body>
 </html>
@@ -734,16 +735,19 @@ def _render_preview(item_id: str) -> Path:
     return preview_path
 
 
+def _portal_index_html() -> str:
+    try:
+        return FRONT_INDEX_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return INDEX_HTML
+
+
 _init_db()
 
 
 @app.get("/")
 def index():
-    return jsonify(
-        ok=True,
-        service="h265-evidence-backend",
-        frontend="served by proxy/front container in docker-compose",
-    )
+    return render_template_string(_portal_index_html())
 
 
 @app.get("/health")

@@ -435,8 +435,8 @@ Lý do cách này ổn trong checker: mode `get` luôn được hệ thống ch�
 
 Mode `put` cũng chỉ in ra:
 
-```json
-{"id": "flag_x"}
+```text
+flag_x
 ```
 
 Không in token ra flag id public.

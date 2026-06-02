@@ -47,6 +47,14 @@ python checker.py 127.0.0.1 8000 put flag_id blockChainPTIT{flag} 1
 python checker.py 127.0.0.1 8000 get flag_id blockChainPTIT{flag} 1
 ```
 
+Service nên chạy bằng Docker Compose khi đưa vào môi trường A/D vì lúc đó có đủ `proxy`, `front`, `backend`, `preview-worker` và `postgres`. Khi chỉ cần test nhanh checker ở máy local, có thể chạy Flask trực tiếp trong `service/backend`; backend sẽ render giao diện fallback tại `/` và vẫn giữ đủ API cho checker:
+
+```powershell
+cd service/backend
+$env:DATA_DIR = "../../_local_data"
+python -m flask --app app run --host 127.0.0.1 --port 8000
+```
+
 ## Dữ liệu public và private
 
 Mode `put` in ra đúng một dòng `flag_id`:

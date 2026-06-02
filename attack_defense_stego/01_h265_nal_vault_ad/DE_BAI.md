@@ -23,6 +23,8 @@ Service có kiến trúc giống một bài attack-defense thật hơn:
 
 Service cũng có operator login, registry camera, public case/share link, manifest, audit trail và redacted preview.
 
+Giao diện web dùng tiếng Việt cho phần mô tả và thao tác, nhưng giữ các thuật ngữ kỹ thuật quen thuộc bằng tiếng Anh như `H265 Evidence Portal`, `Case ID`, `Operator Token`, `CCTV Source`, `manifest`, `share` và `preview.h265`. Cách viết này giúp bài dễ đọc với người chơi Việt Nam mà vẫn sát ngữ cảnh service A/D thật.
+
 ## Root bug
 
 Bug lớn của bài nằm ở public preview pipeline:
@@ -114,6 +116,8 @@ Nhờ vậy mỗi round có thể đặt flag vào source khác nhau nhưng vẫ
 
 ## Chạy service local
 
+Chạy đầy đủ theo mô hình A/D bằng Docker:
+
 ```bash
 cd service
 docker compose up --build
@@ -124,6 +128,16 @@ Service mặc định lắng nghe tại:
 ```text
 http://127.0.0.1:8000
 ```
+
+Nếu chỉ muốn test nhanh backend/API khi Docker daemon chưa bật, có thể chạy Flask trực tiếp:
+
+```powershell
+cd service/backend
+$env:DATA_DIR = "../../_local_data"
+python -m flask --app app run --host 127.0.0.1 --port 8000
+```
+
+Khi chạy bằng Docker, trang `/` do `service/front/index.html` phục vụ qua Nginx. Khi chạy Flask trực tiếp, backend dùng giao diện fallback cùng nội dung để tiện test local.
 
 ## API chính
 

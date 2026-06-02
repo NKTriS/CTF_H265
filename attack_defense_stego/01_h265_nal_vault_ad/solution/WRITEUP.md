@@ -11,6 +11,8 @@ Phần checker/platform nằm ở:
 - `checker/adarena_task.yml`: cấu hình đề xuất cho 20 round, 300 giây/round, flag lifetime 5.
 - `checker/ADARENA.md`: cách tích hợp và test checker.
 
+Giao diện service được viết theo hướng Việt hóa vừa đủ: câu mô tả, trạng thái và nút thao tác dùng tiếng Việt; các thuật ngữ kỹ thuật thường gặp trong A/D vẫn giữ tiếng Anh như `Case ID`, `Operator Token`, `manifest`, `share`, `preview.h265`. Vì vậy writeup cũng giữ cách gọi tương tự để khớp với web và API.
+
 ## Tóm tắt lỗi
 
 Service mô phỏng cổng chia sẻ bằng chứng CCTV đã redact. Dashboard `/` cho phép

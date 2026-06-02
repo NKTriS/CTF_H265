@@ -57,6 +57,16 @@ python checker.py 127.0.0.1 8000 check
 Nếu checksystem không truyền port, checker dùng `SERVICE_PORT`, mặc định là
 `8000`.
 
+Môi trường A/D thật nên chạy bằng `service/docker-compose.yml`. Khi chỉ test nhanh trên máy cá nhân, có thể chạy Flask trực tiếp trong `service/backend`:
+
+```powershell
+cd service/backend
+$env:DATA_DIR = "../../_local_data"
+python -m flask --app app run --host 127.0.0.1 --port 8000
+```
+
+Backend có giao diện fallback tại `/` và vẫn phục vụ đủ API cho checker.
+
 ### `check`
 
 Khi chạy trên hệ thống Hackerdom/ForcAD:
