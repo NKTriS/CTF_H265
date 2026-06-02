@@ -74,8 +74,9 @@ def preview_looks_hevc(data: bytes) -> bool:
     return has_vcl and has_parameter_set
 
 
-def deterministic_token(flag_id: str) -> str:
-    return hashlib.sha256(f"h265-ad-checker-token:{flag_id}".encode("utf-8")).hexdigest()[:32]
+def checker_token(item_id: str, flag: str) -> str:
+    material = f"h265-ad-checker-token-v2:{item_id}:{flag}".encode("utf-8")
+    return hashlib.sha256(material).hexdigest()[:32]
 
 
 def cquit(code: int, public: str, private: str = "") -> int:
@@ -150,12 +151,12 @@ def cmd_put(args) -> int:
 
     url = base_url(args.host, port)
     item_id = flag_id or f"flag_{int(time.time())}_{secrets.token_hex(4)}"
-    token = deterministic_token(item_id) if flag_id else secrets.token_hex(16)
+    token = checker_token(item_id, flag)
     stored = http_json(f"{url}/api/store", "POST", {"id": item_id, "token": token, "secret": flag})
     if not stored.get("ok"):
         return cquit(MUMBLE, "MUMBLE", "store endpoint rejected the flag marker")
 
-    print(json.dumps({"id": item_id, "token": token}, sort_keys=True))
+    print(json.dumps({"id": item_id}, sort_keys=True))
     return OK
 
 
@@ -174,8 +175,10 @@ def cmd_get(args) -> int:
     url = base_url(args.host, port)
     try:
         flag_id = json.loads(flag_id_arg)
+        if isinstance(flag_id, dict) and "token" not in flag_id and isinstance(flag_id.get("id"), str):
+            flag_id["token"] = checker_token(flag_id["id"], flag)
     except json.JSONDecodeError:
-        flag_id = {"id": flag_id_arg, "token": deterministic_token(flag_id_arg)}
+        flag_id = {"id": flag_id_arg, "token": checker_token(flag_id_arg, flag)}
     read = http_json(f"{url}/api/read", "POST", flag_id)
     if read.get("secret") != flag:
         return cquit(CORRUPT, "CORRUPT", "stored marker does not match the expected flag")

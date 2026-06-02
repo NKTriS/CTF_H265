@@ -10,7 +10,7 @@ logic khai thác.
 - `checker/checker.py`: dành cho ban tổ chức hoặc hệ thống chấm, chỉ có
   `check`, `put`, `get`.
 - `solution/exploit.py`: dành cho writeup/đội tấn công, chứa logic parse H.265
-  AUD NAL và khôi phục flag từ public preview.
+  và khôi phục flag từ các bề mặt public bị lỗi.
 
 Việc tách này quan trọng vì checker không nên tiết lộ cách khai thác cho đội
 phòng thủ hoặc bị bundle nhầm vào môi trường chấm.
@@ -73,15 +73,21 @@ python checker.py put 127.0.0.1 8000 'blockChainPTIT{example_flag}'
 ```
 
 Checker gửi flag/custody marker vào `/api/store`, sau đó in ra `flag_id` dạng
-JSON:
+JSON. JSON này chỉ chứa `id`, không chứa token:
 
 ```json
-{"id": "flag_...", "token": "..."}
+{"id": "flag_..."}
 ```
 
-Nếu hệ thống chấm lưu stdout của `put`, JSON này sẽ được truyền lại cho mode
-`get`. Nếu hệ thống chấm chỉ truyền lại `flag_id` gốc kiểu Hackerdom, checker
-vẫn đọc được vì token được sinh quyết định từ `flag_id` đó.
+Token dùng để gọi `/api/read` được checker sinh từ cả `id` và flag thật:
+
+```text
+sha256("h265-ad-checker-token-v2:" || id || ":" || flag)[:32]
+```
+
+Mode `get` luôn được hệ thống chấm truyền lại flag thật để so sánh, nên checker
+có thể tự tính lại token. Attacker chỉ biết `id` public nên không tự tính được
+token hợp lệ.
 
 Trong bối cảnh attack-defense, attacker chỉ cần biết `id` hoặc tự lấy `id` qua
 endpoint public `/api/cases`.
@@ -97,8 +103,8 @@ python checker.py get 10.10.0.5 flag_seed_123 'blockChainPTIT{example_flag}' 1
 Khi test local với JSON do mode `put` in ra:
 
 ```bash
-python checker.py get 127.0.0.1 8000 '{"id":"flag_x","token":"token_x"}' 'blockChainPTIT{example_flag}'
+python checker.py get 127.0.0.1 8000 '{"id":"flag_x"}' 'blockChainPTIT{example_flag}'
 ```
 
-Checker gửi `id` và `token` vào `/api/read`, so sánh marker trả về với flag gốc.
-Nếu khác nhau thì trả `CORRUPT`.
+Checker tự tính token từ `id` và flag, gửi `id` + `token` vào `/api/read`, rồi
+so sánh marker trả về với flag gốc. Nếu khác nhau thì trả `CORRUPT`.

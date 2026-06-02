@@ -1,7 +1,7 @@
-diff --git a/service/backend/app.py b/service/backend/app.py
+diff --git a/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py b/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py
 index 309ba30..44badc1 100644
---- a/service/backend/app.py
-+++ b/service/backend/app.py
+--- a/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py
++++ b/attack_defense_stego/01_h265_nal_vault_ad/service/backend/app.py
 @@ -9,12 +9,15 @@ from pathlib import Path
  
  from flask import Flask, Response, jsonify, render_template_string, request, session
@@ -143,4 +143,3 @@ index 309ba30..44badc1 100644
          try:
              # Local fallback: Docker uses preview-worker, but direct Flask runs still work.
              preview_path = _render_preview(item_id)
-

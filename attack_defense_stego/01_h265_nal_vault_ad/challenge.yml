@@ -29,7 +29,9 @@ description: |
   chia se bang chung CCTV da redact. Service gan custody marker noi bo cua tung
   case vao raw HEVC Annex-B bitstream. Root bug la public preview sanitizer copy
   private metadata/custody side-channel tu carrier sang redacted artifact. Attacker
-  co the khai thac AUD timing channel, SEI debug trace hoac stale preview cache.
+  co the khai thac AUD timing channel, SEI debug trace, parameter set trace,
+  diagnostics leak, thumbnail header leak, operator debug route hoac stale preview cache.
   Huong defense dung la tao preview theo allowlist NAL an toan, strip metadata phu
-  nhu AUD/SEI, invalidate cache cu bang sanitizer version, dong thoi giu dashboard,
+  nhu AUD/SEI/parameter set trace, invalidate cache cu bang sanitizer version,
+  tat diagnostics/debug leak, bo custody header, dong thoi giu dashboard,
   /api/store va /api/read hoat dong.

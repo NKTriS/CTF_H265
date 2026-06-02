@@ -23,7 +23,6 @@ Các chỗ cần vá chính:
 - Route diagnostics: không được public dữ liệu gợi ý marker.
 - Route thumbnail: không được nhét dữ liệu nội bộ vào HTTP header.
 - Route operator debug: không được deploy endpoint trả marker.
-- Token checker: không được để token suy ra được từ `case_id` public.
 
 ## 2. Vá Hàm Tạo Preview H.265
 
@@ -398,9 +397,9 @@ Lý do:
 
 Với A/D, defense đúng là loại bỏ chức năng debug trả bí mật, không chỉ che nó sau một lớp đăng nhập yếu.
 
-## 7. Kiểm Soát Token Checker
+## 7. Đồng Bộ Checker
 
-### Vấn đề cần hiểu
+### Vấn đề cần tránh
 
 Trong hệ thống A/D thật, checker sẽ gọi:
 
@@ -412,34 +411,41 @@ check(host, port)
 
 Attacker thường chỉ biết `flag_id`, không được biết token bí mật mà checker dùng khi put.
 
-Nếu token có thể suy ra từ `case_id` hoặc `flag_id`, attacker có thể bỏ qua toàn bộ phần stego và gọi route đọc hợp lệ:
+Nếu checker tự tạo token từ `case_id` public, attacker có thể bỏ qua toàn bộ phần stego và gọi route đọc hợp lệ:
 
 ```text
 POST /api/read
 ```
 
-### Cần đảm bảo gì?
+### Bài hiện tại xử lý như nào?
 
-Không dùng công thức kiểu:
+Checker hiện không dùng công thức kiểu:
 
 ```text
 token = sha256("h265-ad-checker-token:" || case_id)[:32]
 ```
 
-vì `case_id` là dữ liệu có thể bị lộ hoặc được scoreboard phát cho attacker.
+Thay vào đó, checker sinh token từ cả `case_id` và flag thật:
 
-Token đúng phải có tính chất:
+```text
+token = sha256("h265-ad-checker-token-v2:" || case_id || ":" || flag)[:32]
+```
 
-- Do checker sinh ngẫu nhiên.
-- Được checker lưu riêng theo flag id.
-- Không suy ra được từ `case_id`.
-- Không xuất hiện trong manifest, audit, share page, preview URL hoặc response public.
+Lý do cách này ổn trong checker: mode `get` luôn được hệ thống chấm truyền lại flag thật để so sánh, còn attacker thì không biết flag trước khi khai thác. Vì vậy attacker không thể tự tính token chỉ từ `case_id`.
 
-### Tại sao phần này quan trọng?
+Mode `put` cũng chỉ in ra:
 
-Nếu token yếu, mọi bản vá H.265 đều mất ý nghĩa. Attacker không cần phân tích NAL nữa, chỉ cần tính token rồi gọi API hợp lệ.
+```json
+{"id": "flag_x"}
+```
 
-Vì vậy khi kiểm tra defense, phải kiểm tra cả luồng API hợp lệ, không chỉ kiểm tra file `.h265`.
+Không in token ra flag id public.
+
+### Tại sao vẫn cần ghi phần này?
+
+Vì nếu người ra đề đổi checker rồi vô tình đưa token vào flag id public, bài sẽ biến thành lỗi checker chứ không còn là bài H.265 stego nữa. Khi đó mọi bản vá H.265 đều mất ý nghĩa.
+
+Vì vậy sau khi sửa service, vẫn cần test `checker put/get` để chắc luồng hợp lệ hoạt động, nhưng không được để attacker suy ra token từ dữ liệu public.
 
 ## 8. Kiểm Tra Sau Khi Vá
 
@@ -546,7 +552,6 @@ Nếu exploit vẫn lấy được flag, xem nó lấy qua hướng nào rồi v
 - Nếu lấy qua diagnostics: kiểm tra route diagnostics.
 - Nếu lấy qua thumbnail: kiểm tra header.
 - Nếu lấy qua operator: kiểm tra debug route và login operator.
-- Nếu lấy qua token: kiểm tra cách checker sinh/lưu token.
 
 ## 9. Cách Áp Dụng Bản Vá
 
@@ -591,7 +596,7 @@ Public artifact không được chứa dữ liệu sinh từ marker.
 Public route không được đọc marker.
 Cache cũ phải bị vô hiệu hóa sau khi đổi sanitizer.
 Debug route không được tồn tại trong môi trường thi.
-Token checker không được suy ra từ flag id public.
+Checker không được công khai token hoặc sinh token từ flag id public.
 ```
 
 Nếu chỉ vá một điểm, bài vẫn có thể bị khai thác qua điểm khác. Cách vá đúng là đóng toàn bộ đường đưa dữ liệu nội bộ ra ngoài, đặc biệt là các đường tưởng như vô hại như metadata video, HTTP header, diagnostics và cache.

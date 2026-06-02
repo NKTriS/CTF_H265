@@ -38,9 +38,13 @@ Vấn đề là preview public bị lẫn dữ liệu nội bộ. Từ cùng m�
 
 - AUD NAL type 35 chứa timing channel.
 - SEI prefix NAL type 39 chứa operator debug trace đã mask.
+- Parameter set NAL type 34 chứa trace `H5PSET`.
+- Diagnostics public trả `custody_hint` có thể giải ngược.
+- Thumbnail public làm lộ custody hint qua HTTP header.
+- Operator debug route trả marker nếu còn deploy.
 - Preview cache cũ có thể vẫn giữ artifact sinh bởi sanitizer lỗi.
 
-Vì vậy defender không thể chỉ vá một dấu hiệu là xong. Defense đúng phải xử lý cả class lỗi: public preview không được copy metadata không nằm trong allowlist an toàn.
+Vì vậy defender không thể chỉ vá một dấu hiệu là xong. Defense đúng phải xử lý cả class lỗi: public preview không được copy metadata không nằm trong allowlist an toàn, đồng thời các route public/debug không được trả dữ liệu dẫn xuất từ marker.
 
 ## Nhiệm vụ đội chơi
 
@@ -54,6 +58,10 @@ Người chơi cần:
 - Khai thác một hoặc nhiều side-channel còn sót trong preview public:
   - AUD timing channel.
   - SEI debug trace.
+  - Parameter set trace.
+  - Diagnostics public.
+  - Thumbnail header.
+  - Operator debug route.
   - Stale preview artifact.
 - Khôi phục custody marker/flag động do checker đặt.
 
@@ -64,8 +72,11 @@ Người chơi cần:
 - Giữ dashboard và API hợp lệ hoạt động.
 - Giữ `checker check/put/get` chạy bình thường.
 - Tạo preview public theo allowlist NAL an toàn.
-- Strip metadata phụ như AUD/SEI/debug trace khỏi preview.
+- Strip metadata phụ như AUD/SEI/parameter set trace khỏi preview.
 - Invalidate preview cache cũ bằng sanitizer version hoặc purge cache.
+- Tắt diagnostics public chứa custody hint.
+- Không trả custody hint trong header thumbnail.
+- Không deploy route operator debug trả marker.
 
 ## Chạy service local
 
@@ -131,6 +142,12 @@ SEI debug trace:
 
 ```text
 H5DBG || 2-byte length || xor(packet, SHA256("h265-ad-sei-trace:" || case_id || counter))
+```
+
+Parameter set trace:
+
+```text
+H5PSET || 2-byte length || xor(packet, SHA256("h265-ad-ps-trace:" || case_id || counter))
 ```
 
 ## Flag mẫu

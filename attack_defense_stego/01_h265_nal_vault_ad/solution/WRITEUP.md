@@ -28,6 +28,10 @@ Trong bài này, attacker có nhiều hướng từ cùng một lỗi:
 
 - AUD NAL type 35 chứa timing channel.
 - SEI prefix NAL type 39 chứa debug trace đã mask.
+- Parameter set NAL type 34 chứa trace `H5PSET`.
+- Diagnostics public trả `custody_hint` có thể giải ngược.
+- Thumbnail public làm lộ custody hint qua HTTP header.
+- Operator debug route trả marker nếu còn deploy.
 - Preview cache cũ có thể vẫn giữ artifact sinh bởi sanitizer lỗi.
 
 Flag/custody marker không nằm ở dạng đọc thẳng. Packet gốc là:
@@ -37,5 +41,6 @@ H5AD || 2-byte length || flag || crc32(flag)
 ```
 
 Defense chính là sửa preview theo allowlist NAL an toàn, strip metadata phụ như
-AUD/SEI/debug trace, invalidate preview cache cũ bằng sanitizer version, đồng thời
-giữ nguyên dashboard, `/api/store`, `/api/read` và checker.
+AUD/SEI/parameter set trace, invalidate preview cache cũ bằng sanitizer version,
+tắt diagnostics/debug route public, bỏ custody header ở thumbnail, đồng thời giữ
+nguyên dashboard, `/api/store`, `/api/read` và checker.
