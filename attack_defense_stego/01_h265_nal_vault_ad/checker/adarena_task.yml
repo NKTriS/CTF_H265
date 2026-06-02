@@ -1,0 +1,17 @@
+name: H265 Evidence Portal AD
+service_id: h265_evidence_portal
+checker: checker/checker.py
+checker_type: hackerdom
+service_port: 8000
+checker_timeout: 20
+puts: 1
+gets: 2
+places: 3
+round_time: 300
+max_round: 20
+flag_lifetime: 5
+flag_prefix: blockChainPTIT
+notes:
+  - Checker supports both "checker.py check HOST" and "checker.py HOST check".
+  - PUT prints only public flag_id. It never prints the private read token.
+  - Places map to CCTV sources: 1=lobby_cam_01, 2=parking_gate_02, 3=evidence_upload.

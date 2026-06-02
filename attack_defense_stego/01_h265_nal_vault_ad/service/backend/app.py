@@ -701,6 +701,7 @@ def _public_case(item_id: str, data: dict) -> dict:
         "share_url": f"/share/{share_id}",
         "manifest_url": f"/api/share/{share_id}/manifest.json",
         "preview_url": f"/api/cases/{item_id}/redacted-preview.h265",
+        "thumbnail_url": f"/api/cases/{item_id}/thumbnail.jpg",
         "preview_job": job["status"],
         "created_at": data.get("created_at", 0),
         "reviewed_by": data.get("operator", "api-client"),

@@ -18,6 +18,9 @@ files:
   checker:
     - checker/checker.py
     - checker/CHECKER_EXPLAIN.md
+    - checker/ADARENA.md
+    - checker/adarena_task.yml
+    - checker/requirements.txt
   solution:
     - solution/WRITEUP.md
     - solution/ATTACK.md
@@ -35,3 +38,13 @@ description: |
   nhu AUD/SEI/parameter set trace, invalidate cache cu bang sanitizer version,
   tat diagnostics/debug leak, bo custody header, dong thoi giu dashboard,
   /api/store va /api/read hoat dong.
+platform:
+  checker_type: hackerdom
+  checker_timeout: 20
+  puts: 1
+  gets: 2
+  places: 3
+  service_port: 8000
+  round_time: 300
+  max_round: 20
+  flag_lifetime: 5

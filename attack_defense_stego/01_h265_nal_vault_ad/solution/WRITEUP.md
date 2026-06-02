@@ -5,6 +5,12 @@ Writeup được tách thành hai file chính:
 - `solution/ATTACK.md`: phân tích một root bug lớn và nhiều hướng khai thác từ bug đó.
 - `solution/DEFENSE.md`: chiến lược vá tổng thể cho cả class lỗi, không vá từng dấu hiệu.
 
+Phần checker/platform nằm ở:
+
+- `checker/checker.py`: checker `check/put/get` kiểu Hackerdom/ADArena.
+- `checker/adarena_task.yml`: cấu hình đề xuất cho 20 round, 300 giây/round, flag lifetime 5.
+- `checker/ADARENA.md`: cách tích hợp và test checker.
+
 ## Tóm tắt lỗi
 
 Service mô phỏng cổng chia sẻ bằng chứng CCTV đã redact. Dashboard `/` cho phép
@@ -44,3 +50,7 @@ Defense chính là sửa preview theo allowlist NAL an toàn, strip metadata ph�
 AUD/SEI/parameter set trace, invalidate preview cache cũ bằng sanitizer version,
 tắt diagnostics/debug route public, bỏ custody header ở thumbnail, đồng thời giữ
 nguyên dashboard, `/api/store`, `/api/read` và checker.
+
+Checker chỉ public `flag_id`, không public token. Khi `get`, checker tự tính token
+từ `flag_id + flag` do hệ thống chấm truyền lại, nên attacker không thể bỏ qua bài
+bằng cách gọi `/api/read` nếu chỉ biết `flag_id`.

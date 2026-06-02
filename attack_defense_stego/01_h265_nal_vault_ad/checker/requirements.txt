@@ -1,0 +1,1 @@
+# Checker uses only Python standard library.

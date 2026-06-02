@@ -78,6 +78,40 @@ Người chơi cần:
 - Không trả custody hint trong header thumbnail.
 - Không deploy route operator debug trả marker.
 
+## Cấu hình Attack/Defense đề xuất
+
+Bài này được thiết kế để chạy như một service A/D thật, không phải Jeopardy đơn lẻ.
+
+```text
+Service port: 8000
+Checker type: hackerdom
+Checker timeout: 20 giây
+Round time: 300 giây
+Max round: 20
+Flag lifetime: 5 round
+Puts mỗi round: 1
+Gets mỗi round: 2
+Places: 3
+Flag prefix: blockChainPTIT
+```
+
+Checker hỗ trợ cả hai kiểu gọi:
+
+```bash
+python checker.py check 10.10.0.5
+python checker.py 10.10.0.5 check
+```
+
+Khi `put`, checker chỉ in ra `flag_id` public. Token dùng để đọc marker không được in ra và không suy ra được nếu attacker chỉ biết `flag_id`.
+
+`places = 3` tương ứng ba nguồn CCTV:
+
+- `1`: `lobby_cam_01`
+- `2`: `parking_gate_02`
+- `3`: `evidence_upload`
+
+Nhờ vậy mỗi round có thể đặt flag vào source khác nhau nhưng vẫn giữ chung root bug là public artifact/metadata leak.
+
 ## Chạy service local
 
 ```bash
