@@ -20,7 +20,6 @@ services:
     environment:
       - DATA_DIR=/data
       - DATABASE_URL=postgresql://h265:h265@postgres:5432/h265
-      - APP_SECRET=h265-evidence-portal-compose-secret
     volumes:
       - h265_evidence_files:/data
     depends_on:

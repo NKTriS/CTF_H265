@@ -10,7 +10,7 @@
 
 ## Mô tả
 
-H265 Evidence Portal là một web service mô phỏng cổng quản lý bằng chứng CCTV. Điều tra viên dùng dashboard tại `/` để import CCTV evidence từ camera/source, lưu raw H.265 evidence carrier và kiểm tra custody marker bằng operator token.
+H265 Evidence Portal là một web service mô phỏng cổng quản lý bằng chứng CCTV. Trang `/` hiển thị hồ sơ/share public; công cụ vận hành như import CCTV evidence, registry camera, audit trail và kiểm tra custody marker chỉ hiện trong phiên operator hoặc được checker/API nội bộ gọi trực tiếp.
 
 Marker là dữ liệu nội bộ phục vụ chain-of-custody. Trong môi trường CTF, checker đặt flag động vào marker khi gọi API import case.
 
@@ -21,7 +21,7 @@ Service có kiến trúc giống một bài attack-defense thật hơn:
 - `preview-worker` render preview bất đồng bộ.
 - `postgres` lưu metadata case, audit trail và preview job queue.
 
-Service cũng có operator login, registry camera, public case/share link, manifest, audit trail và redacted preview.
+Service cũng có trang đăng nhập operator tại `/login`, registry camera, public case/share link, manifest, audit trail và redacted preview.
 
 Giao diện web dùng tiếng Việt cho phần mô tả và thao tác, nhưng giữ các thuật ngữ kỹ thuật quen thuộc bằng tiếng Anh như `H265 Evidence Portal`, `Case ID`, `Operator Token`, `CCTV Source`, `manifest`, `share` và `preview.h265`. Cách viết này giúp bài dễ đọc với người chơi Việt Nam mà vẫn sát ngữ cảnh service A/D thật.
 
@@ -43,7 +43,7 @@ Vấn đề là preview public bị lẫn dữ liệu nội bộ. Từ cùng m�
 - Parameter set NAL type 34 chứa trace `H5PSET`.
 - Diagnostics public trả `custody_hint` có thể giải ngược.
 - Thumbnail public làm lộ custody hint qua HTTP header.
-- Operator debug route trả marker nếu còn deploy.
+- Operator debug route trả marker nếu còn deploy và credential nội bộ của instance bị lộ.
 - Preview cache cũ có thể vẫn giữ artifact sinh bởi sanitizer lỗi.
 
 Vì vậy defender không thể chỉ vá một dấu hiệu là xong. Defense đúng phải xử lý cả class lỗi: public preview không được copy metadata không nằm trong allowlist an toàn, đồng thời các route public/debug không được trả dữ liệu dẫn xuất từ marker.
@@ -63,7 +63,7 @@ Người chơi cần:
   - Parameter set trace.
   - Diagnostics public.
   - Thumbnail header.
-  - Operator debug route.
+  - Operator debug route khi có credential nội bộ bị lộ.
   - Stale preview artifact.
 - Khôi phục custody marker/flag động do checker đặt.
 
@@ -137,14 +137,16 @@ $env:DATA_DIR = "../../_local_data"
 python -m flask --app app run --host 127.0.0.1 --port 8000
 ```
 
-Khi chạy bằng Docker, trang `/` do `service/front/index.html` phục vụ qua Nginx. Khi chạy Flask trực tiếp, backend dùng giao diện fallback cùng nội dung để tiện test local.
+Khi chạy bằng Docker, trang `/` và `/login` do thư mục `service/front` phục vụ qua Nginx. Khi chạy Flask trực tiếp, backend đọc trực tiếp các file trong `service/front` và chỉ dùng giao diện fallback nếu thiếu file.
 
 ## API chính
 
 ```text
 GET  /
+GET  /login
 GET  /health
 POST /api/operator/login
+POST /api/operator/logout
 GET  /api/operator/me
 GET  /api/cameras
 POST /api/store

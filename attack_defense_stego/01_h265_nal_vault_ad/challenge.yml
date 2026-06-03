@@ -13,7 +13,11 @@ files:
     - service/backend/worker.py
     - service/backend/requirements.txt
     - service/backend/assets/cctv_redacted_template.hevc
+    - service/backend/assets/thumb_evidence_upload.jpg
+    - service/backend/assets/thumb_lobby_cam_01.jpg
+    - service/backend/assets/thumb_parking_gate_02.jpg
     - service/front/index.html
+    - service/front/login.html
     - service/proxy/nginx.conf
   checker:
     - checker/checker.py
@@ -33,7 +37,8 @@ description: |
   case vao raw HEVC Annex-B bitstream. Root bug la public preview sanitizer copy
   private metadata/custody side-channel tu carrier sang redacted artifact. Attacker
   co the khai thac AUD timing channel, SEI debug trace, parameter set trace,
-  diagnostics leak, thumbnail header leak, operator debug route hoac stale preview cache.
+  diagnostics leak, thumbnail header leak hoac stale preview cache. Operator debug
+  route la rui ro phu neu credential noi bo cua instance bi lo.
   Huong defense dung la tao preview theo allowlist NAL an toan, strip metadata phu
   nhu AUD/SEI/parameter set trace, invalidate cache cu bang sanitizer version,
   tat diagnostics/debug leak, bo custody header, dong thoi giu dashboard,

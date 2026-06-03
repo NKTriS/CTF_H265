@@ -371,7 +371,9 @@ Route này trả marker trực tiếp:
 return jsonify(ok=True, id=item_id, marker=secret)
 ```
 
-Nó được đặt dưới đường dẫn operator, nhưng trong bài lab có operator console và mật khẩu mặc định. Nếu attacker đăng nhập được operator hoặc lấy được session, route này trở thành đường lấy cờ thẳng.
+Nó được đặt dưới đường dẫn operator. Nếu credential operator của instance bị lộ,
+hoặc attacker lấy được session operator bằng một lỗi khác, route này trở thành
+đường lấy cờ thẳng.
 
 ### Cần vá cái gì?
 
@@ -551,7 +553,7 @@ Nếu exploit vẫn lấy được flag, xem nó lấy qua hướng nào rồi v
 - Nếu lấy qua preview: kiểm tra `_preview_bitstream` và cache.
 - Nếu lấy qua diagnostics: kiểm tra route diagnostics.
 - Nếu lấy qua thumbnail: kiểm tra header.
-- Nếu lấy qua operator: kiểm tra debug route và login operator.
+- Nếu lấy qua operator: kiểm tra debug route, session operator và nguồn lộ credential.
 
 ## 9. Cách Áp Dụng Bản Vá
 
@@ -565,13 +567,13 @@ solution/defense.patch
 
 ```powershell
 cd H:\Lab_giau_tin\CTF_H265\attack_defense_stego\01_h265_nal_vault_ad
-git apply solution\defense.patch
+git apply --ignore-space-change solution\defense.patch
 ```
 
 Nếu muốn quay về bản vulnerable để test lại:
 
 ```powershell
-git apply -R solution\defense.patch
+git apply -R --ignore-space-change solution\defense.patch
 ```
 
 Lưu ý PowerShell có biến `$PID` mặc định là read-only. Nếu cần đọc file `.lab_service.pid`, không dùng:

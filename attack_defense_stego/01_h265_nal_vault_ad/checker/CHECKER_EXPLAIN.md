@@ -65,7 +65,9 @@ $env:DATA_DIR = "../../_local_data"
 python -m flask --app app run --host 127.0.0.1 --port 8000
 ```
 
-Backend có giao diện fallback tại `/` và vẫn phục vụ đủ API cho checker.
+Khi chạy Flask trực tiếp, backend đọc các file trong `service/front` để phục vụ
+`/` và `/login`; nếu thiếu file frontend thì mới dùng HTML fallback tối giản.
+Các API checker cần vẫn hoạt động như khi chạy Docker Compose.
 
 ### `check`
 

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập - H.265 Evidence Portal</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5d6b82;
+      --line: #d8dfeb;
+      --accent: #0f766e;
+      --accent-dark: #115e59;
+      --warn: #a16207;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .wrap {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    h1 { margin: 0; font-size: 22px; font-weight: 720; letter-spacing: 0; }
+    h2 { margin: 0 0 10px; font-size: 20px; font-weight: 720; letter-spacing: 0; }
+    p { margin: 0 0 16px; color: var(--muted); }
+    a {
+      color: var(--accent-dark);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    main {
+      min-height: calc(100vh - 79px);
+      display: grid;
+      align-items: center;
+      padding: 36px 0;
+    }
+    .auth-shell {
+      width: min(460px, 100%);
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent-dark);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    label {
+      display: block;
+      margin: 12px 0 5px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    input {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 11px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, .12);
+    }
+    button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      margin-top: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-dark); }
+    .full { width: 100%; }
+    .nav-link {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: #fff;
+    }
+    .result {
+      margin-top: 14px;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 11px;
+      background: #f8fafc;
+      color: var(--muted);
+    }
+    .warn { color: var(--warn); }
+    .foot {
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 640px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px 0;
+      }
+      .nav-link { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <div>
+        <h1>H.265 Evidence Portal</h1>
+        <p>Cổng vận hành chứng cứ CCTV</p>
+      </div>
+      <a class="nav-link" href="/">Quay lại portal</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="auth-shell">
+      <div class="eyebrow">Operator access</div>
+      <h2>Đăng nhập</h2>
+      <p>Đăng nhập bằng tài khoản vận hành được cấp riêng cho instance này.</p>
+      <form id="loginForm">
+        <label for="loginUser">Tài khoản</label>
+        <input id="loginUser" autocomplete="username" placeholder="Tài khoản operator" required>
+
+        <label for="loginPass">Mật khẩu</label>
+        <input id="loginPass" autocomplete="current-password" type="password" placeholder="Mật khẩu operator" required>
+
+        <button class="full" type="submit">Đăng nhập</button>
+      </form>
+      <div class="result" id="loginOut">Chưa có phiên đăng nhập.</div>
+      <div class="foot">
+        <a href="/">Xem hồ sơ công khai</a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    async function postJson(path, body) {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({ok: false, error: "JSON không hợp lệ"}));
+      return {status: res.status, data};
+    }
+
+    async function getJson(path) {
+      const res = await fetch(path);
+      const data = await res.json().catch(() => ({ok: false, error: "JSON không hợp lệ"}));
+      return {status: res.status, data};
+    }
+
+    getJson("/api/operator/me").then((response) => {
+      if (response.data?.authenticated) {
+        document.getElementById("loginOut").textContent = `Đang đăng nhập: ${response.data.operator}`;
+      }
+    });
+
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const result = await postJson("/api/operator/login", {
+        username: document.getElementById("loginUser").value,
+        password: document.getElementById("loginPass").value,
+      });
+      const out = document.getElementById("loginOut");
+      if (result.data.ok) {
+        out.textContent = `Đăng nhập thành công: ${result.data.operator}. Đang chuyển về portal...`;
+        window.location.href = "/";
+      } else {
+        out.innerHTML = `<span class="warn">${result.data.error || "Đăng nhập thất bại"}</span>`;
+      }
+    });
+  </script>
+</body>
+</html>

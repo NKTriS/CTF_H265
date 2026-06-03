@@ -7,12 +7,14 @@ Danh sách ảnh đề xuất:
 ## Attack
 
 1. `attack-01-dashboard.png`
-   - Chụp dashboard `/` có form import/verify và redacted preview.
+   - Chụp portal `/` với public cases, share link, thumbnail và preview.
 2. `attack-02-cases.png`
    - Chụp `/api/cases` làm lộ target id và preview URL.
 3. `attack-03-preview-download.png`
    - Chụp tải được public preview `.h265`.
-4. `attack-04-exploit-flag.png`
+4. `attack-04-login-page.png`
+   - Chụp `/login` để thể hiện operator access là luồng riêng, không có signup hay mật khẩu mặc định.
+5. `attack-05-exploit-flag.png`
    - Chụp exploit in ra flag.
 
 ## Defense

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>H265 Evidence Portal</title>
+  <title>H.265 Evidence Portal</title>
   <style>
     :root {
       --bg: #f4f7fb;
@@ -22,14 +22,17 @@
       margin: 0;
       background: var(--bg);
       color: var(--ink);
-      font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 14px/1.45 "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
     }
     header {
+      order: 1;
       background: #fff;
       border-bottom: 1px solid var(--line);
     }
     .wrap {
-      width: min(1240px, calc(100% - 32px));
+      width: min(1280px, calc(100% - 32px));
       margin: 0 auto;
     }
     .topbar {
@@ -39,10 +42,52 @@
       justify-content: space-between;
       gap: 24px;
     }
-    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
-    h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: 0; }
-    h3 { margin: 0 0 8px; font-size: 15px; letter-spacing: 0; }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-link {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--accent-dark);
+      background: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .nav-link:hover {
+      border-color: #aac3d5;
+      background: #f8fafc;
+    }
+    .logout-button {
+      min-height: 36px;
+      margin-top: 0;
+      padding: 8px 13px;
+      background: #334155;
+    }
+    .logout-button:hover { background: #1e293b; }
+    .login-state {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    body.is-operator .guest-actions { display: none; }
+    body:not(.is-operator) .logout-button { display: none; }
+    h1 { margin: 0; font-size: 22px; font-weight: 720; letter-spacing: 0; }
+    h2 { margin: 0 0 10px; font-size: 17px; font-weight: 720; letter-spacing: 0; }
+    h3 { margin: 0 0 8px; font-size: 15px; font-weight: 700; letter-spacing: 0; }
     main { padding: 22px 0 42px; }
+    main.wrap { display: contents; }
     section, .panel {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -56,16 +101,18 @@
       align-items: center;
       gap: 8px;
       color: var(--accent-dark);
-      font-weight: 800;
+      font-weight: 700;
       white-space: nowrap;
     }
     .dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
     .dashboard {
+      order: 2;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 12px;
-      margin-bottom: 16px;
+      margin: 0;
     }
+    body:not(.is-operator) .internal-only { display: none; }
     .metric {
       min-height: 86px;
       background: #fff;
@@ -77,17 +124,76 @@
       display: block;
       color: var(--muted);
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 700;
       text-transform: uppercase;
     }
-    .metric strong { display: block; margin-top: 6px; font-size: 24px; }
+    .metric strong { display: block; margin-top: 6px; font-size: 22px; font-weight: 720; }
     .layout {
-      display: grid;
-      grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-      gap: 16px;
+      display: contents;
+    }
+    .layout > section, .layout > .dashboard {
+      width: min(1280px, calc(100% - 32px));
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .layout > section:not(.tool-workbench) { order: 4; }
+    .stack { display: grid; gap: 16px; }
+    .layout > .stack:first-child {
+      order: 2;
+      width: 100%;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: start;
     }
-    .stack { display: grid; gap: 16px; }
+    .layout > .stack:last-child {
+      display: contents;
+    }
+    .layout > .stack:last-child > section {
+      order: 3;
+      width: 100%;
+    }
+    .function-strip {
+      order: 1;
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+    .function-strip section {
+      min-height: 100%;
+    }
+    .function-strip .compact-form {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .function-strip .compact-form .full {
+      grid-column: auto;
+    }
+    .function-strip .activity-panel {
+      display: block;
+      padding: 18px;
+    }
+    .function-strip .activity-panel .output,
+    .function-strip .compact-panel .output {
+      max-height: 168px;
+    }
+    .function-strip .activity-list {
+      grid-template-columns: 1fr;
+    }
+    .function-strip .activity-item {
+      min-height: 58px;
+      padding: 7px;
+    }
+    .function-strip .camera-grid {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .function-strip .camera-item {
+      padding: 7px;
+    }
+    .function-strip .camera-item p:last-child {
+      display: none;
+    }
     .row {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -95,10 +201,10 @@
     }
     label {
       display: block;
-      margin: 12px 0 6px;
+      margin: 10px 0 5px;
       color: var(--muted);
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 700;
     }
     input, select {
       width: 100%;
@@ -115,6 +221,16 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(15, 118, 110, .12);
     }
+    .compact-panel h2 { margin-bottom: 6px; }
+    .compact-panel .muted { margin-bottom: 8px; }
+    .compact-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 14px;
+      align-items: end;
+    }
+    .compact-form .full { grid-column: 1 / -1; }
+    .compact-form button { justify-self: start; }
     button {
       display: inline-flex;
       align-items: center;
@@ -125,23 +241,94 @@
       color: #fff;
       padding: 10px 14px;
       margin-top: 14px;
-      font-weight: 800;
+      font-weight: 700;
       cursor: pointer;
       min-height: 40px;
     }
     button:hover { background: var(--accent-dark); }
-    pre {
+    .output {
       margin: 12px 0 0;
-      min-height: 96px;
-      max-height: 240px;
+      min-height: 0;
+      max-height: 190px;
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 6px;
       background: #f8fafc;
       color: var(--code);
-      white-space: pre-wrap;
-      word-break: break-word;
       overflow: auto;
+    }
+    .output p { margin: 0 0 8px; }
+    .output p:last-child { margin-bottom: 0; }
+    .kv {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      gap: 6px 10px;
+      font-size: 14px;
+    }
+    .kv span:nth-child(odd) { color: var(--muted); font-weight: 700; }
+    .mini-list { display: grid; gap: 8px; }
+    .mini-item {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    .mini-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .activity-panel {
+      display: grid;
+      grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      padding: 14px 16px;
+    }
+    .activity-panel h2 { margin-bottom: 4px; }
+    .activity-panel .muted { margin-bottom: 0; }
+    .activity-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .activity-item {
+      min-height: 76px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f8fafc;
+      padding: 9px;
+      overflow: hidden;
+    }
+    .activity-item strong {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .activity-item p { margin: 5px 0 0; }
+    .activity-empty {
+      grid-column: 1 / -1;
+      min-height: 54px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      background: #fbfdff;
+    }
+    .camera-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .camera-item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 10px;
+    }
+    .camera-item p { margin: 6px 0 0; }
+    #cameraOut {
+      max-height: none;
+      min-height: 0;
+    }
+    #storeOut, #readOut {
+      max-height: 150px;
     }
     code {
       background: #eef2f7;
@@ -163,9 +350,65 @@
       padding: 8px 10px;
       background: #fff;
       color: var(--muted);
-      font-weight: 800;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0;
     }
+    .tab:hover { border-color: #aac3d5; background: #fbfdff; }
     .tab.active { color: var(--accent-dark); background: #e9f7f4; border-color: #b8ddd8; }
+    .tool-workbench {
+      order: 3;
+      width: min(1280px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 0;
+      overflow: hidden;
+    }
+    body:not(.is-operator) .tool-workbench,
+    body:not(.is-operator) .tab[data-view="queue"] {
+      display: none;
+    }
+    .tool-tabs {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+    }
+    .tool-tab {
+      min-height: 50px;
+      margin: 0;
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      justify-content: flex-start;
+      padding: 10px 14px;
+    }
+    .tool-tab:last-child { border-right: 0; }
+    .tool-tab:hover { background: #f1f5f9; }
+    .tool-tab.active {
+      background: #fff;
+      color: var(--accent-dark);
+      box-shadow: inset 0 -2px 0 var(--accent);
+    }
+    .tool-body { padding: 18px; }
+    .tool-view { display: none; }
+    .tool-view.active { display: block; }
+    .tool-view .activity-panel {
+      display: grid;
+      padding: 0;
+      border: 0;
+      box-shadow: none;
+      grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+    }
+    .tool-view .activity-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tool-view .camera-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     .case-table {
       width: 100%;
       border-collapse: collapse;
@@ -183,6 +426,68 @@
       font-size: 12px;
       text-transform: uppercase;
     }
+    .evidence-cell {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+    .case-thumb {
+      width: 92px;
+      aspect-ratio: 16 / 9;
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      object-fit: cover;
+      background: #e5e7eb;
+    }
+    .thumb-link {
+      display: block;
+      line-height: 0;
+    }
+    .case-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .case-card {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 14px;
+      min-height: 148px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px;
+    }
+    .case-card .case-thumb {
+      width: 180px;
+      border-radius: 7px;
+    }
+    .case-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    .case-meta span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .case-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .case-actions a {
+      color: var(--accent-dark);
+      font-weight: 700;
+      text-decoration: none;
+    }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -192,7 +497,7 @@
       background: var(--soft);
       color: var(--accent-dark);
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 700;
     }
     .warn { color: var(--warn); }
     .links { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -211,11 +516,28 @@
     }
     @media (max-width: 920px) {
       .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .layout { grid-template-columns: 1fr; }
+      .layout > .stack:first-child, .case-list, .activity-panel { grid-template-columns: 1fr; }
+      .function-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tool-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .tool-view .camera-grid, .tool-view .activity-list { grid-template-columns: 1fr; }
+      .activity-list { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-      .dashboard, .row { grid-template-columns: 1fr; }
+      .dashboard, .row, .compact-form { grid-template-columns: 1fr; }
+      .function-strip { grid-template-columns: 1fr; }
+      .tool-tabs { grid-template-columns: 1fr; }
+      .tool-view .activity-panel { grid-template-columns: 1fr; }
       .topbar { flex-direction: column; align-items: flex-start; padding: 18px 0; }
+      .top-actions {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .nav-actions { width: 100%; }
+      .guest-actions { width: 100%; }
+      .nav-link, .logout-button { width: 100%; }
+      .case-card { grid-template-columns: 1fr; }
+      .case-card .case-thumb { width: 100%; }
       .case-table { min-width: 760px; }
       .table-scroll { overflow-x: auto; }
     }
@@ -225,67 +547,58 @@
   <header>
     <div class="wrap topbar">
       <div>
-        <h1>H265 Evidence Portal</h1>
-        <div class="muted">Quản lý chứng cứ CCTV đã redact, public share và custody marker HEVC.</div>
+        <h1>H.265 Evidence Portal</h1>
+        <div class="muted">Quản lý CCTV case, redacted preview, public share và custody marker HEVC.</div>
       </div>
-      <div class="status"><span class="dot"></span> Dịch vụ đang hoạt động</div>
+      <div class="top-actions">
+        <div class="status"><span class="dot"></span> Service online</div>
+        <div class="nav-actions">
+          <div class="guest-actions">
+            <a class="nav-link" href="/login">Login</a>
+          </div>
+          <button class="logout-button" id="logoutButton" type="button">Logout</button>
+          <div class="login-state" id="operatorOut">Guest access</div>
+        </div>
+      </div>
     </div>
   </header>
 
   <main class="wrap">
-    <div class="dashboard">
-      <div class="metric"><span>Case công khai</span><strong id="caseCount">0</strong></div>
-      <div class="metric"><span>Nguồn CCTV</span><strong id="cameraCount">0</strong></div>
-      <div class="metric"><span>Preview jobs</span><strong id="jobCount">0</strong></div>
-      <div class="metric"><span>Operator</span><strong id="operatorState">Guest</strong></div>
-    </div>
-
     <div class="layout">
-      <div class="stack">
-        <section>
-          <h2>Operator Session</h2>
-          <p class="muted">Phiên vận hành dùng để review camera source và mở các thao tác nội bộ.</p>
-          <form id="loginForm">
-            <div class="row">
+      <section class="tool-workbench">
+        <div class="tool-tabs">
+          <button class="tool-tab active" type="button" data-tool="import">Import evidence</button>
+          <button class="tool-tab" type="button" data-tool="verify">Verify marker</button>
+          <button class="tool-tab" type="button" data-tool="camera">Camera registry</button>
+          <button class="tool-tab" type="button" data-tool="preview">Preview jobs</button>
+          <button class="tool-tab" type="button" data-tool="audit">Audit log</button>
+        </div>
+
+        <div class="tool-body">
+          <div class="tool-view active" data-tool-panel="import">
+            <h2>Import CCTV evidence</h2>
+            <p class="muted">Tạo case từ camera source, gắn custody marker và sinh redacted preview.</p>
+            <form id="storeForm" class="compact-form">
               <div>
-                <label for="loginUser">Username</label>
-                <input id="loginUser" autocomplete="off" placeholder="triage">
+                <label for="storeId">Case ID</label>
+                <input id="storeId" autocomplete="off" placeholder="case_2026_001" required>
               </div>
               <div>
-                <label for="loginPass">Password</label>
-                <input id="loginPass" autocomplete="off" type="password" placeholder="triage-2026">
+                <label for="storeToken">Operator token</label>
+                <input id="storeToken" autocomplete="off" placeholder="ít nhất 8 ký tự" required>
               </div>
-            </div>
-            <button type="submit">Đăng nhập operator</button>
-          </form>
-          <pre id="operatorOut">Chưa có phiên operator.</pre>
-        </section>
-
-        <section>
-          <h2>Import CCTV Evidence</h2>
-          <p class="muted">Tạo case từ camera source, gắn custody marker và sinh redacted preview cho public review.</p>
-          <form id="storeForm">
-            <label for="storeId">Case ID</label>
-            <input id="storeId" autocomplete="off" placeholder="case_2026_001" required>
-
-            <label for="storeToken">Operator Token</label>
-            <input id="storeToken" autocomplete="off" placeholder="ít nhất 8 ký tự" required>
-
-            <label for="storeSource">CCTV Source</label>
-            <select id="storeSource"></select>
-
-            <div class="row">
+              <div class="full">
+                <label for="storeSource">Camera source</label>
+                <select id="storeSource"></select>
+              </div>
               <div>
-                <label for="evidenceStart">Thời gian bắt đầu</label>
+                <label for="evidenceStart">Start time</label>
                 <input id="evidenceStart" autocomplete="off" placeholder="2026-06-02 09:00">
               </div>
               <div>
-                <label for="evidenceEnd">Thời gian kết thúc</label>
+                <label for="evidenceEnd">End time</label>
                 <input id="evidenceEnd" autocomplete="off" placeholder="2026-06-02 09:15">
               </div>
-            </div>
-
-            <div class="row">
               <div>
                 <label for="redactionLevel">Redaction profile</label>
                 <select id="redactionLevel">
@@ -303,66 +616,93 @@
                   <option>legal-hold</option>
                 </select>
               </div>
-            </div>
-
-            <button type="submit">Nhập chứng cứ</button>
-          </form>
-          <pre id="storeOut">Chưa có yêu cầu import.</pre>
-        </section>
-      </div>
-
-      <div class="stack">
-        <section>
-          <div class="tabs">
-            <div class="tab active">Evidence Cases</div>
-            <div class="tab">Public Shares</div>
-            <div class="tab">Preview Queue</div>
-          </div>
-          <div class="table-scroll" id="caseOut">
-            <div class="empty">Chưa có case công khai.</div>
-          </div>
-        </section>
-
-        <div class="row">
-          <section>
-            <h2>Verify Custody Marker</h2>
-            <p class="muted">Luồng hợp lệ vẫn cần đúng <code>Case ID</code> và <code>Operator Token</code>.</p>
-            <form id="readForm">
-              <label for="readId">Case ID</label>
-              <input id="readId" autocomplete="off" required>
-              <label for="readToken">Operator Token</label>
-              <input id="readToken" autocomplete="off" required>
-              <button type="submit">Xác minh marker</button>
+              <button class="full" type="submit">Import evidence</button>
             </form>
-            <pre id="readOut">Chưa có yêu cầu verify.</pre>
-          </section>
+            <div class="output" id="storeOut">No import request.</div>
+          </div>
 
-          <section>
-            <h2>Camera Registry</h2>
-            <p class="muted">Danh sách source đang được phép import vào portal.</p>
-            <pre id="cameraOut">Đang tải camera registry...</pre>
-          </section>
+          <div class="tool-view" data-tool-panel="verify">
+            <h2>Verify marker</h2>
+            <p class="muted">Đọc custody marker bằng Case ID và operator token.</p>
+            <form id="readForm" class="compact-form">
+              <div>
+                <label for="readId">Case ID</label>
+                <input id="readId" autocomplete="off" required>
+              </div>
+              <div>
+                <label for="readToken">Operator token</label>
+                <input id="readToken" autocomplete="off" required>
+              </div>
+              <button class="full" type="submit">Verify marker</button>
+            </form>
+            <div class="output" id="readOut">No verify request.</div>
+          </div>
+
+          <div class="tool-view" data-tool-panel="camera">
+            <h2>Camera registry</h2>
+            <p class="muted">CCTV sources allowed for import.</p>
+            <div class="output" id="cameraOut">Loading camera registry...</div>
+          </div>
+
+          <div class="tool-view" data-tool-panel="preview">
+            <div class="activity-panel">
+              <div>
+                <h2>Preview jobs</h2>
+                <p class="muted">Recent redacted-preview jobs.</p>
+              </div>
+              <div class="output" id="jobOut">Loading preview jobs...</div>
+            </div>
+          </div>
+
+          <div class="tool-view" data-tool-panel="audit">
+            <div class="activity-panel">
+              <div>
+                <h2>Audit log</h2>
+                <p class="muted">Recent service events.</p>
+              </div>
+              <div class="output" id="auditOut">Loading audit trail...</div>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div class="row">
-          <section>
-            <h2>Preview Worker</h2>
-            <p class="muted">Theo dõi hàng đợi render redacted preview.</p>
-            <pre id="jobOut">Đang tải preview jobs...</pre>
-          </section>
-
-          <section>
-            <h2>Audit Trail</h2>
-            <p class="muted">Sự kiện gần đây của operator, import, preview và share.</p>
-            <pre id="auditOut">Đang tải audit trail...</pre>
-          </section>
-        </div>
+      <div class="dashboard">
+        <div class="metric"><span>Public cases</span><strong id="caseCount">0</strong></div>
+        <div class="metric internal-only"><span>CCTV sources</span><strong id="cameraCount">0</strong></div>
+        <div class="metric internal-only"><span>Preview jobs</span><strong id="jobCount">0</strong></div>
+        <div class="metric"><span>Operator</span><strong id="operatorState">Guest</strong></div>
       </div>
+
+      <section>
+        <div class="tabs">
+          <button class="tab active" type="button" data-view="cases">Cases</button>
+          <button class="tab" type="button" data-view="shares">Public shares</button>
+          <button class="tab" type="button" data-view="queue">Preview queue</button>
+        </div>
+        <div class="table-scroll" id="caseOut">
+          <div class="empty">No public case.</div>
+        </div>
+      </section>
     </div>
   </main>
 
   <script>
-    const json = (value) => JSON.stringify(value, null, 2);
+    let currentOverviewView = "cases";
+    let latestCases = [];
+    let latestJobs = [];
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function badge(label) {
+      return `<span class="badge">${escapeHtml(label)}</span>`;
+    }
 
     async function postJson(path, body) {
       const res = await fetch(path, {
@@ -386,28 +726,205 @@
       return Number.isNaN(date.getTime()) ? String(ts) : date.toLocaleString();
     }
 
+    function captureWindow(item) {
+      if (!item.capture_start || !item.capture_end) return "-";
+      return `${shortTime(item.capture_start)} - ${shortTime(item.capture_end)}`;
+    }
+
+    function renderOperatorStatus(response) {
+      const data = response.data || {};
+      document.getElementById("operatorOut").textContent = data.authenticated
+        ? `Logged in: ${data.operator || "operator"}`
+        : "Guest access";
+    }
+
+    function renderCameraRegistry(cameras) {
+      const target = document.getElementById("cameraOut");
+      if (!cameras.length) {
+        target.innerHTML = '<div class="empty">No camera source.</div>';
+        return;
+      }
+      target.innerHTML = `<div class="camera-grid">${cameras.map((camera) => `
+        <div class="camera-item">
+          <strong>${escapeHtml(camera.name)}</strong> ${badge(camera.id)}
+          <p class="muted">${escapeHtml(camera.zone)} · ${escapeHtml(camera.codec)} · ${escapeHtml(camera.retention)}</p>
+          <p>${escapeHtml(camera.public_redaction)}</p>
+        </div>
+      `).join("")}</div>`;
+    }
+
+    function renderJobSummary(jobs) {
+      const target = document.getElementById("jobOut");
+      if (!jobs.length) {
+        target.innerHTML = '<div class="activity-list"><div class="activity-empty">No preview job.</div></div>';
+        return;
+      }
+      target.innerHTML = `<div class="activity-list">${jobs.slice(0, 2).map((job) => `
+        <div class="activity-item">
+          <strong>${escapeHtml(job.case_id)}</strong> ${badge(job.status || "-")}
+          <p class="muted">Attempts: ${escapeHtml(job.attempts ?? 0)}<br>${escapeHtml(shortTime(job.updated_at))}</p>
+          ${job.error ? `<p class="warn">${escapeHtml(job.error)}</p>` : ""}
+        </div>
+      `).join("")}</div>`;
+    }
+
+    function renderAuditTrail(response) {
+      const events = response.data?.events || [];
+      const target = document.getElementById("auditOut");
+      if (!events.length) {
+        target.innerHTML = '<div class="activity-list"><div class="activity-empty">No audit event.</div></div>';
+        return;
+      }
+      target.innerHTML = `<div class="activity-list">${events.slice(-2).reverse().map((event) => `
+        <div class="activity-item">
+          <strong>${escapeHtml(event.event)}</strong> ${badge(event.operator || "-")}
+          <p class="muted">${escapeHtml(event.case_id || "-")}<br>${escapeHtml(shortTime(event.ts))}</p>
+        </div>
+      `).join("")}</div>`;
+    }
+
+    function renderStoreResult(response, context) {
+      const data = response.data || {};
+      document.getElementById("storeOut").innerHTML = `
+        <div class="kv">
+          <span>Result</span><span>${data.ok ? badge("imported") : badge("failed")}</span>
+          <span>Case ID</span><span>${escapeHtml(data.id || "-")}</span>
+          <span>Source</span><span>${escapeHtml(data.source || "-")}</span>
+          <span>Priority</span><span>${escapeHtml(context.priority || "-")}</span>
+          <span>Redaction</span><span>${escapeHtml(context.redaction_profile || "-")}</span>
+          <span>Links</span><span>${data.ok ? `<a href="${data.case_url}">case</a> · <a href="${data.share_url}">share</a> · <a href="${data.preview_url}">preview.h265</a>` : escapeHtml(data.error || "-")}</span>
+        </div>
+      `;
+    }
+
+    function renderReadResult(response) {
+      const data = response.data || {};
+      document.getElementById("readOut").innerHTML = `
+        <div class="kv">
+          <span>Result</span><span>${data.ok ? badge("verified") : badge("denied")}</span>
+          <span>HTTP</span><span>${escapeHtml(response.status)}</span>
+          <span>Marker</span><span>${data.secret ? `<code>${escapeHtml(data.secret)}</code>` : "-"}</span>
+          <span>Message</span><span>${escapeHtml(data.error || "Token hợp lệ, marker đọc được.")}</span>
+        </div>
+      `;
+    }
+
+    function setOverviewView(view) {
+      currentOverviewView = view;
+      for (const tab of document.querySelectorAll(".tab[data-view]")) {
+        tab.classList.toggle("active", tab.dataset.view === view);
+      }
+      renderOverview();
+    }
+
+    function setToolView(tool) {
+      for (const tab of document.querySelectorAll(".tool-tab[data-tool]")) {
+        tab.classList.toggle("active", tab.dataset.tool === tool);
+      }
+      for (const panel of document.querySelectorAll(".tool-view[data-tool-panel]")) {
+        panel.classList.toggle("active", panel.dataset.toolPanel === tool);
+      }
+    }
+
+    function setOperatorAccess(authenticated) {
+      document.body.classList.toggle("is-operator", authenticated);
+      if (!authenticated && currentOverviewView === "queue") {
+        currentOverviewView = "cases";
+      }
+      if (authenticated && !document.querySelector(".tool-view.active")) {
+        setToolView("import");
+      }
+    }
+
+    function renderOverview() {
+      if (currentOverviewView === "shares") {
+        renderShares(latestCases);
+      } else if (currentOverviewView === "queue") {
+        renderPreviewQueue(latestJobs);
+      } else {
+        renderCases(latestCases);
+      }
+    }
+
     function renderCases(items) {
       const target = document.getElementById("caseOut");
       document.getElementById("caseCount").textContent = String(items.length);
       if (!items.length) {
-        target.innerHTML = '<div class="empty">Chưa có case công khai.</div>';
+        target.innerHTML = '<div class="empty">No public case.</div>';
         return;
       }
       const rows = items.map((item) => `
-        <tr>
-          <td><strong>${item.id}</strong><br><span class="muted">${item.source || "-"}</span></td>
-          <td>${item.camera || "-"}<br><span class="muted">${item.zone || "-"}</span></td>
-          <td><span class="badge">${item.status || "redacted"}</span><br><span class="muted">${item.redaction_profile || "-"}</span></td>
-          <td>${shortTime(item.created_at)}<br><span class="muted">${item.reviewed_by || "checker_bot"}</span></td>
-          <td><span class="badge">${item.preview_job || "queued"}</span></td>
-          <td>
-            <div class="links">
+        <article class="case-card">
+          <a class="thumb-link" href="${item.thumbnail_url}">
+            <img class="case-thumb" src="${item.thumbnail_url}" alt="">
+          </a>
+          <div>
+            <strong>${escapeHtml(item.evidence_ref || item.id)}</strong>
+            <p class="muted">Internal key: ${escapeHtml(item.id)}</p>
+            <div class="case-meta">
+              <div><span>Source</span>${escapeHtml(item.camera || "-")}<br>${escapeHtml(item.zone || "-")}</div>
+              <div><span>Incident</span>${escapeHtml(item.incident_type || "Evidence review")}<br>Level: ${escapeHtml(item.severity || "medium")}</div>
+              <div><span>Capture window</span>${escapeHtml(captureWindow(item))}</div>
+              <div><span>Status</span>${badge(item.status || "redacted")} ${badge(item.preview_job || "queued")}</div>
+            </div>
+            <p class="muted">Redaction: ${escapeHtml(item.redaction_profile || "-")} · Intake: ${escapeHtml(item.reviewed_by || "-")}</p>
+            <div class="case-actions">
               <a href="${item.case_url}">case</a>
               <a href="${item.share_url}">share</a>
               <a href="${item.manifest_url}">manifest</a>
               <a href="${item.preview_url}">preview.h265</a>
             </div>
-          </td>
+          </div>
+        </article>
+      `).join("");
+      target.innerHTML = `<div class="case-list">${rows}</div>`;
+    }
+
+    function renderShares(items) {
+      const target = document.getElementById("caseOut");
+      if (!items.length) {
+        target.innerHTML = '<div class="empty">No public share.</div>';
+        return;
+      }
+      const rows = items.map((item) => `
+        <article class="case-card">
+          <a class="thumb-link" href="${item.thumbnail_url}">
+            <img class="case-thumb" src="${item.thumbnail_url}" alt="">
+          </a>
+          <div>
+            <strong>${escapeHtml(item.evidence_ref || item.id)}</strong>
+            <p class="muted">${escapeHtml(item.incident_type || "Evidence review")} · ${escapeHtml(item.camera || "-")}</p>
+            <div class="case-meta">
+              <div><span>Internal key</span>${escapeHtml(item.id)}</div>
+              <div><span>Status</span>${badge(item.status || "redacted")}</div>
+              <div><span>Capture window</span>${escapeHtml(captureWindow(item))}</div>
+              <div><span>Preview</span>${badge(item.preview_job || "queued")}</div>
+            </div>
+            <div class="case-actions">
+              <a href="${item.share_url}">share page</a>
+              <a href="${item.manifest_url}">manifest.json</a>
+              <a href="${item.thumbnail_url}">thumbnail.jpg</a>
+              <a href="${item.case_url}">case</a>
+            </div>
+          </div>
+        </article>
+      `).join("");
+      target.innerHTML = `<div class="case-list">${rows}</div>`;
+    }
+
+    function renderPreviewQueue(jobs) {
+      const target = document.getElementById("caseOut");
+      if (!jobs.length) {
+        target.innerHTML = '<div class="empty">No preview job.</div>';
+        return;
+      }
+      const rows = jobs.map((job) => `
+        <tr>
+          <td><strong>${job.case_id}</strong></td>
+          <td><span class="badge">${job.status || "-"}</span></td>
+          <td>${job.attempts ?? 0}</td>
+          <td>${shortTime(job.updated_at)}</td>
+          <td><span class="${job.error ? "warn" : ""}">${job.error || "-"}</span></td>
         </tr>
       `).join("");
       target.innerHTML = `
@@ -415,11 +932,10 @@
           <thead>
             <tr>
               <th>Case ID</th>
-              <th>Camera</th>
-              <th>Redaction</th>
-              <th>Created</th>
-              <th>Preview</th>
-              <th>Public artifacts</th>
+              <th>Status</th>
+              <th>Attempts</th>
+              <th>Updated</th>
+              <th>Error</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -429,13 +945,15 @@
 
     async function refreshPortal() {
       const me = await getJson("/api/operator/me");
-      document.getElementById("operatorOut").textContent = json(me);
-      document.getElementById("operatorState").textContent = me.data.authenticated ? me.data.operator : "Guest";
+      const authenticated = Boolean(me.data?.authenticated);
+      setOperatorAccess(authenticated);
+      renderOperatorStatus(me);
+      document.getElementById("operatorState").textContent = authenticated ? me.data.operator : "Guest";
 
       const cameras = await getJson("/api/cameras");
       const cameraItems = cameras.data.cameras || [];
       document.getElementById("cameraCount").textContent = String(cameraItems.length);
-      document.getElementById("cameraOut").textContent = json(cameras);
+      renderCameraRegistry(cameraItems);
       const select = document.getElementById("storeSource");
       select.innerHTML = "";
       for (const camera of cameraItems) {
@@ -446,20 +964,32 @@
       }
 
       const cases = await getJson("/api/cases");
-      renderCases(cases.data.items || []);
+      latestCases = cases.data.items || [];
+      document.getElementById("caseCount").textContent = String(latestCases.length);
 
-      const jobs = await getJson("/api/preview-jobs");
-      document.getElementById("jobCount").textContent = String((jobs.data.jobs || []).length);
-      document.getElementById("jobOut").textContent = json(jobs);
-      document.getElementById("auditOut").textContent = json(await getJson("/api/audit"));
+      if (authenticated) {
+        const jobs = await getJson("/api/preview-jobs");
+        latestJobs = jobs.data.jobs || [];
+        document.getElementById("jobCount").textContent = String(latestJobs.length);
+        renderJobSummary(latestJobs);
+        renderAuditTrail(await getJson("/api/audit"));
+      } else {
+        latestJobs = [];
+        document.getElementById("jobCount").textContent = "0";
+      }
+      renderOverview();
     }
 
-    document.getElementById("loginForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      document.getElementById("operatorOut").textContent = json(await postJson("/api/operator/login", {
-        username: document.getElementById("loginUser").value,
-        password: document.getElementById("loginPass").value,
-      }));
+    for (const tab of document.querySelectorAll(".tab[data-view]")) {
+      tab.addEventListener("click", () => setOverviewView(tab.dataset.view));
+    }
+
+    for (const tab of document.querySelectorAll(".tool-tab[data-tool]")) {
+      tab.addEventListener("click", () => setToolView(tab.dataset.tool));
+    }
+
+    document.getElementById("logoutButton").addEventListener("click", async () => {
+      await postJson("/api/operator/logout", {});
       await refreshPortal();
     });
 
@@ -471,14 +1001,11 @@
         source: document.getElementById("storeSource").value,
       };
       const result = await postJson("/api/store", body);
-      document.getElementById("storeOut").textContent = json({
-        ...result,
-        form_context: {
-          started_at: document.getElementById("evidenceStart").value || null,
-          ended_at: document.getElementById("evidenceEnd").value || null,
-          redaction_profile: document.getElementById("redactionLevel").value,
-          priority: document.getElementById("casePriority").value,
-        },
+      renderStoreResult(result, {
+        started_at: document.getElementById("evidenceStart").value || null,
+        ended_at: document.getElementById("evidenceEnd").value || null,
+        redaction_profile: document.getElementById("redactionLevel").value,
+        priority: document.getElementById("casePriority").value,
       });
       if (result.data.ok) {
         document.getElementById("readId").value = body.id;
@@ -489,7 +1016,7 @@
 
     document.getElementById("readForm").addEventListener("submit", async (event) => {
       event.preventDefault();
-      document.getElementById("readOut").textContent = json(await postJson("/api/read", {
+      renderReadResult(await postJson("/api/read", {
         id: document.getElementById("readId").value,
         token: document.getElementById("readToken").value,
       }));

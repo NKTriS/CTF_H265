@@ -698,13 +698,10 @@ h265-ad-thumb:
 
 ### Khi Nào Dùng Được?
 
-Dùng khi hệ thống để tài khoản operator mặc định và route debug còn bật.
-
-Tài khoản mặc định:
-
-```text
-triage / triage-2026
-```
+Dùng khi defender deploy route debug và làm lộ credential operator riêng của
+instance đó, ví dụ lộ `.env`, log vận hành, backup cấu hình hoặc đặt mật khẩu
+dễ đoán. Bản challenge không có luồng tự đăng ký operator và không ship mật khẩu mặc định,
+nên đây là hướng phụ khi có thêm lỗi vận hành.
 
 Route debug:
 
@@ -712,18 +709,26 @@ Route debug:
 /api/operator/cases/<case_id>/debug-marker
 ```
 
-Đây là lỗi vận hành/service: route debug đáng ra chỉ dành cho nội bộ hoặc không được deploy trong môi trường thi. Nhưng nếu còn bật, attacker đăng nhập operator bằng mật khẩu mặc định rồi đọc marker.
+Đây là lỗi vận hành/service: route debug đáng ra chỉ dành cho nội bộ hoặc không
+được deploy trong môi trường thi. Nếu attacker có được credential operator của
+instance mục tiêu, route này trả marker trực tiếp.
 
 ### Lệnh Khai Thác
 
 ```powershell
-# Đăng nhập bằng tài khoản operator mặc định và lưu cookie phiên vào cookie.txt.
+# Đăng nhập bằng credential operator bị lộ và lưu cookie phiên vào cookie.txt.
 curl.exe -c cookie.txt -X POST http://127.0.0.1:8000/api/operator/login `
   -H "Content-Type: application/json" `
-  -d "{\"username\":\"triage\",\"password\":\"triage-2026\"}"
+  -d "{\"username\":\"<operator>\",\"password\":\"<password>\"}"
 
 # Dùng cookie operator để gọi route debug marker của case.
 curl.exe -b cookie.txt http://127.0.0.1:8000/api/operator/cases/flag_1780132060_da66f92c/debug-marker
+```
+
+Với `solution/exploit.py`, truyền credential qua tham số hoặc environment:
+
+```powershell
+python solution\exploit.py http://127.0.0.1:8000 --id flag_1780132060_da66f92c --vector operator --operator-user <operator> --operator-password <password>
 ```
 
 ## Hướng 7 - Lấy Cờ Từ Preview Cache Cũ
@@ -777,9 +782,9 @@ Bảng này giúp đọc bài theo đúng kiểu attack-defense: attacker không
 | Xóa AUD type `35` | Nếu SEI type `39/40` còn `H5DBG`, dùng hướng SEI. |
 | Xóa SEI type `39/40` | Nếu AUD type `35` còn bit giấu, dùng hướng AUD. |
 | Xóa cả AUD và SEI | Nếu vẫn giữ VPS/SPS/PPS từ carrier gốc, dùng hướng parameter set `H5PSET`. |
-| Chỉ lọc H.265 preview | Dùng diagnostics public, thumbnail header hoặc operator debug nếu các đường này còn bật. |
-| Tắt diagnostics | Thử thumbnail header hoặc operator debug. |
-| Xóa header thumbnail | Thử diagnostics public hoặc operator debug. |
+| Chỉ lọc H.265 preview | Dùng diagnostics public, thumbnail header hoặc operator debug nếu các đường này còn bật và có credential operator bị lộ. |
+| Tắt diagnostics | Thử thumbnail header, hoặc operator debug nếu có credential operator bị lộ. |
+| Xóa header thumbnail | Thử diagnostics public, hoặc operator debug nếu có credential operator bị lộ. |
 | Tắt operator debug | Các đường H.265, diagnostics hoặc thumbnail vẫn có thể còn sống. |
 | Vá code tạo preview mới | Nếu cache cũ chưa xóa hoặc chưa đổi version cache, tải preview cũ rồi khai thác AUD/SEI/parameter set. |
 | Ẩn audit và preview-jobs | Vẫn có thể lấy `case_id` qua `/api/cases`, share hoặc manifest nếu các endpoint đó còn public. |
@@ -789,7 +794,7 @@ Nói gọn:
 
 ```text
 Các endpoint trinh sát chỉ là đường tìm mục tiêu.
-Muốn ra flag, cuối cùng vẫn cần một lỗi thật còn sống: AUD leak, SEI leak, parameter set leak, diagnostics leak, thumbnail header leak, operator debug, cache cũ, hoặc private route hở.
+Muốn ra flag, cuối cùng vẫn cần một lỗi thật còn sống: AUD leak, SEI leak, parameter set leak, diagnostics leak, thumbnail header leak, operator debug kèm credential bị lộ, cache cũ, hoặc private route hở.
 ```
 
 ## Kết Luận

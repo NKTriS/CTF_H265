@@ -16,21 +16,24 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 EVIDENCE_DIR = DATA_DIR / "evidence"
 PREVIEW_DIR = DATA_DIR / "previews"
 FRONT_INDEX_PATH = Path(__file__).resolve().parents[1] / "front" / "index.html"
+FRONT_LOGIN_PATH = Path(__file__).resolve().parents[1] / "front" / "login.html"
+ASSET_DIR = Path(__file__).resolve().parent / "assets"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 SQLITE_FILE = DATA_DIR / "evidence.db"
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,48}$")
 SHARE_RE = re.compile(r"^[a-f0-9]{16}$")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("APP_SECRET", "h265-evidence-portal-dev-secret")
+app.secret_key = os.environ.get("APP_SECRET") or secrets.token_hex(32)
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
 
 
-OPERATORS = {
-    "triage": os.environ.get("TRIAGE_PASSWORD", "triage-2026"),
-    "archive": os.environ.get("ARCHIVE_PASSWORD", "archive-2026"),
+_OPERATOR_ENV = {
+    "triage": os.environ.get("TRIAGE_PASSWORD"),
+    "archive": os.environ.get("ARCHIVE_PASSWORD"),
 }
+OPERATORS = {name: password for name, password in _OPERATOR_ENV.items() if password}
 
 CAMERAS = {
     "lobby_cam_01": {
@@ -54,6 +57,12 @@ CAMERAS = {
         "retention": "duyệt thủ công",
         "public_redaction": "theo lựa chọn người vận hành",
     },
+}
+
+THUMBNAIL_BY_SOURCE = {
+    "lobby_cam_01": ASSET_DIR / "thumb_lobby_cam_01.jpg",
+    "parking_gate_02": ASSET_DIR / "thumb_parking_gate_02.jpg",
+    "evidence_upload": ASSET_DIR / "thumb_evidence_upload.jpg",
 }
 
 
@@ -239,7 +248,7 @@ INDEX_HTML = r"""
           </div>
           <div>
             <label for="loginPass">Mật khẩu</label>
-            <input id="loginPass" autocomplete="off" type="password" placeholder="triage-2026">
+            <input id="loginPass" autocomplete="off" type="password" placeholder="Mật khẩu operator">
           </div>
         </div>
         <button type="submit">Mở phiên vận hành</button>
@@ -398,7 +407,7 @@ CASE_HTML = r"""
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Evidence case {{ item_id }}</title>
+  <title>Hồ sơ chứng cứ {{ item_id }}</title>
   <style>
     body {
       margin: 0;
@@ -432,15 +441,25 @@ CASE_HTML = r"""
       text-decoration: none;
       font-weight: 800;
     }
+    .preview-thumb {
+      width: 100%;
+      max-height: 360px;
+      margin: 12px 0 4px;
+      border: 1px solid #d8dfeb;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #e5e7eb;
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>Evidence case: {{ item_id }}</h1>
+    <h1>Hồ sơ chứng cứ: {{ item_id }}</h1>
+    <img class="preview-thumb" src="{{ public_case.thumbnail_url }}" alt="">
     <p>Nguồn: <code>{{ public_case.camera }}</code> tại <code>{{ public_case.zone }}</code></p>
     <p>Trạng thái: <code>{{ public_case.status }}</code> · Kiểu che: <code>{{ public_case.redaction_profile }}</code></p>
     <p>Bản xem trước công khai dùng luồng CCTV HEVC đã xử lý. Tệp này dùng để rà soát cấu trúc mà không công khai luồng chứng cứ gốc.</p>
-    <p>Preview endpoint: <code>/api/cases/{{ item_id }}/redacted-preview.h265</code></p>
+    <p>Endpoint bản xem trước: <code>/api/cases/{{ item_id }}/redacted-preview.h265</code></p>
     <a href="/api/cases/{{ item_id }}/redacted-preview.h265">Tải bản xem trước đã che</a>
     <a href="{{ public_case.manifest_url }}" style="margin-left:8px;background:#334155">Mở manifest</a>
   </main>
@@ -673,6 +692,14 @@ def _extract_case_secret(item_id: str) -> str:
     return extract_secret((EVIDENCE_DIR / f"{item_id}.h265").read_bytes(), seed=item_id)
 
 
+def _thumbnail_body(source: str) -> bytes:
+    path = THUMBNAIL_BY_SOURCE.get(source) or THUMBNAIL_BY_SOURCE["lobby_cam_01"]
+    try:
+        return path.read_bytes()
+    except OSError:
+        return b"\xff\xd8\xff\xd9"
+
+
 def _valid_id(value: str) -> bool:
     return isinstance(value, str) and bool(ID_RE.fullmatch(value))
 
@@ -686,13 +713,58 @@ def _share_id(item_id: str, token_hash: str) -> str:
     return hashlib.sha256(f"share:{item_id}:{token_hash}".encode("utf-8")).hexdigest()[:16]
 
 
+def _case_digest(item_id: str) -> bytes:
+    return hashlib.sha256(f"public-case-profile:{item_id}".encode("utf-8")).digest()
+
+
+def _evidence_reference(item_id: str) -> str:
+    digest = _case_digest(item_id)
+    year = 2026
+    sequence = int.from_bytes(digest[:2], "big") % 9000 + 1000
+    suffix = digest[2:4].hex().upper()
+    return f"EV-{year}-{sequence}-{suffix}"
+
+
+def _display_operator(operator: str) -> str:
+    names = {
+        "checker_bot": "Tự động tiếp nhận",
+        "api-client": "Tiếp nhận qua API",
+        "triage": "Điều phối viên",
+        "archive": "Kho chứng cứ",
+    }
+    return names.get(operator, operator)
+
+
+def _incident_profile(item_id: str, source: str) -> dict:
+    digest = _case_digest(item_id)
+    incident_by_source = {
+        "lobby_cam_01": ["Rà soát ra vào", "Sự việc tại sảnh", "Xác minh khách"],
+        "parking_gate_02": ["Rà soát cổng xe", "Che biển số", "Sự việc bãi xe"],
+        "evidence_upload": ["Rà soát chứng cứ ngoài", "Tiếp nhận thủ công", "Video được nộp"],
+    }
+    severity = ["thấp", "trung bình", "cao"][digest[4] % 3]
+    offset = digest[5] % 18
+    duration = 6 + (digest[6] % 19)
+    base_ts = 1764579600  # 2025-12-01 09:00:00 UTC, stable synthetic timeline.
+    start_ts = base_ts + offset * 3600 + (digest[7] % 45) * 60
+    return {
+        "evidence_ref": _evidence_reference(item_id),
+        "incident_type": incident_by_source.get(source, ["Evidence review"])[digest[3] % 3],
+        "severity": severity,
+        "capture_start": start_ts,
+        "capture_end": start_ts + duration * 60,
+    }
+
+
 def _public_case(item_id: str, data: dict) -> dict:
     share_id = data.get("share_id") or _share_id(item_id, data.get("token_hash", ""))
     source = data.get("source", "unknown")
     camera = CAMERAS.get(source, {"name": source, "zone": "unknown", "codec": "HEVC/H.265"})
     job = _preview_job(item_id)
+    profile = _incident_profile(item_id, source)
     return {
         "id": item_id,
+        **profile,
         "source": source,
         "camera": camera.get("name", source),
         "zone": camera.get("zone", "unknown"),
@@ -705,7 +777,7 @@ def _public_case(item_id: str, data: dict) -> dict:
         "thumbnail_url": f"/api/cases/{item_id}/thumbnail.jpg",
         "preview_job": job["status"],
         "created_at": data.get("created_at", 0),
-        "reviewed_by": data.get("operator", "api-client"),
+        "reviewed_by": _display_operator(data.get("operator", "api-client")),
     }
 
 
@@ -742,12 +814,24 @@ def _portal_index_html() -> str:
         return INDEX_HTML
 
 
+def _front_html(path: Path, fallback: str) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return fallback
+
+
 _init_db()
 
 
 @app.get("/")
 def index():
     return render_template_string(_portal_index_html())
+
+
+@app.get("/login")
+def login_page():
+    return render_template_string(_front_html(FRONT_LOGIN_PATH, _portal_index_html()))
 
 
 @app.get("/health")
@@ -983,7 +1067,8 @@ def case_diagnostics(item_id: str):
 def case_thumbnail(item_id: str):
     if not _valid_id(item_id):
         return jsonify(ok=False, error="bad id"), 400
-    if item_id not in _load_meta():
+    meta = _load_meta()
+    if item_id not in meta:
         return jsonify(ok=False, error="not found"), 404
 
     try:
@@ -992,11 +1077,12 @@ def case_thumbnail(item_id: str):
         return jsonify(ok=False, error="thumbnail unavailable"), 404
 
     _audit("thumbnail_downloaded", item_id)
-    body = b"\xff\xd8\xff\xd9"
+    body = _thumbnail_body(meta[item_id].get("source", "lobby_cam_01"))
     return Response(
         body,
         mimetype="image/jpeg",
         headers={
+            "Cache-Control": "no-store",
             "X-H265-Custody-Mask": "h265-ad-thumb:",
             "X-H265-Custody-Hint": _masked_hex(secret, item_id, b"h265-ad-thumb:"),
         },

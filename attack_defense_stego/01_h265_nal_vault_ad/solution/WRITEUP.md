@@ -15,10 +15,10 @@ Giao diện service được viết theo hướng Việt hóa vừa đủ: câu 
 
 ## Tóm tắt lỗi
 
-Service mô phỏng cổng chia sẻ bằng chứng CCTV đã redact. Dashboard `/` cho phép
-import CCTV evidence từ camera/source, lưu raw H.265 evidence carrier và kiểm
-tra custody marker bằng operator token. Marker là dữ liệu nội bộ do hệ thống gắn
-vào evidence; trong CTF, checker đặt flag vào marker qua API. Route `/api/read`
+Service mô phỏng cổng chia sẻ bằng chứng CCTV đã redact. Trang `/` hiển thị case
+public, share và preview; các tool vận hành như import evidence, verify marker,
+camera registry và audit trail chỉ hiện sau khi đăng nhập operator tại `/login`.
+Trong CTF, checker đặt flag vào marker qua API import case. Route `/api/read`
 và `/api/carrier` đều yêu cầu token.
 
 Lỗi nằm ở tính năng public redacted preview:
@@ -39,7 +39,7 @@ Trong bài này, attacker có nhiều hướng từ cùng một lỗi:
 - Parameter set NAL type 34 chứa trace `H5PSET`.
 - Diagnostics public trả `custody_hint` có thể giải ngược.
 - Thumbnail public làm lộ custody hint qua HTTP header.
-- Operator debug route trả marker nếu còn deploy.
+- Operator debug route trả marker nếu còn deploy và credential operator của instance bị lộ.
 - Preview cache cũ có thể vẫn giữ artifact sinh bởi sanitizer lỗi.
 
 Flag/custody marker không nằm ở dạng đọc thẳng. Packet gốc là:
@@ -50,7 +50,7 @@ H5AD || 2-byte length || flag || crc32(flag)
 
 Defense chính là sửa preview theo allowlist NAL an toàn, strip metadata phụ như
 AUD/SEI/parameter set trace, invalidate preview cache cũ bằng sanitizer version,
-tắt diagnostics/debug route public, bỏ custody header ở thumbnail, đồng thời giữ
+tắt diagnostics public và debug route trả marker, bỏ custody header ở thumbnail, đồng thời giữ
 nguyên dashboard, `/api/store`, `/api/read` và checker.
 
 Checker chỉ public `flag_id`, không public token. Khi `get`, checker tự tính token
