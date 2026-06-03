@@ -25,9 +25,9 @@ Service cũng có trang đăng nhập operator tại `/login`, registry camera, 
 
 Giao diện web dùng tiếng Việt cho phần mô tả và thao tác, nhưng giữ các thuật ngữ kỹ thuật quen thuộc bằng tiếng Anh như `H265 Evidence Portal`, `Case ID`, `Operator Token`, `CCTV Source`, `manifest`, `share` và `preview.h265`. Cách viết này giúp bài dễ đọc với người chơi Việt Nam mà vẫn sát ngữ cảnh service A/D thật.
 
-## Root bug
+## Mô tả lỗ hổng
 
-Bug lớn của bài nằm ở public preview pipeline:
+Bug của bài nằm ở public preview pipeline:
 
 ```text
 Service tạo redacted-preview.h265 bằng cách copy NAL từ private raw evidence carrier.
