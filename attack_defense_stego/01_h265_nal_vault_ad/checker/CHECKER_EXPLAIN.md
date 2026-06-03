@@ -9,13 +9,6 @@ Checker đã được viết để hợp với kiểu ADArena demo đang dùng: 
 `max_round = 20`, `round_time = 300`, `flag_lifetime = 5`, flag prefix
 `blockChainPTIT`, và checker tương thích Hackerdom/ForcAD.
 
-Thông số tích hợp nằm ở:
-
-```text
-checker/adarena_task.yml
-checker/ADARENA.md
-```
-
 ## Mã trạng thái
 
 Checker trả exit code theo kiểu Hackerdom:
