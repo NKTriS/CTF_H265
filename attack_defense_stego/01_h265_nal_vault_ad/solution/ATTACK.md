@@ -789,20 +789,3 @@ Bảng này giúp đọc bài theo đúng kiểu attack-defense: attacker không
 | Vá code tạo preview mới | Nếu cache cũ chưa xóa hoặc chưa đổi version cache, tải preview cũ rồi khai thác AUD/SEI/parameter set. |
 | Ẩn audit và preview-jobs | Vẫn có thể lấy `case_id` qua `/api/cases`, share hoặc manifest nếu các endpoint đó còn public. |
 | Vá `/api/read` và `/api/carrier` | Chỉ chặn đường private. Nếu preview public hoặc endpoint debug còn leak thì attacker vẫn lấy cờ. |
-
-Nói gọn:
-
-```text
-Các endpoint trinh sát chỉ là đường tìm mục tiêu.
-Muốn ra flag, cuối cùng vẫn cần một lỗi thật còn sống: AUD leak, SEI leak, parameter set leak, diagnostics leak, thumbnail header leak, operator debug kèm credential bị lộ, cache cũ, hoặc private route hở.
-```
-
-## Kết Luận
-
-Bài này không phải lỗi lấy flag bằng một endpoint trả thẳng flag. Attacker cần đi theo chuỗi:
-
-```text
-tìm case_id -> tải preview công khai -> phân tích NAL -> tách metadata bị sót -> giải ngược packet -> lấy flag
-```
-
-Các hướng khai thác khác nhau nhưng cùng nhắm vào một bản chất: dữ liệu nội bộ của carrier gốc hoặc luồng vận hành nội bộ bị đưa ra bề mặt public/debug. Vì vậy defender vá từng dấu hiệu riêng lẻ sẽ rất dễ sót đường khác.

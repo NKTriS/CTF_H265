@@ -16,16 +16,6 @@ checker/adarena_task.yml
 checker/ADARENA.md
 ```
 
-## Nguyên tắc tách vai trò
-
-- `checker/checker.py`: dành cho ban tổ chức hoặc hệ thống chấm, chỉ có
-  `check`, `put`, `get`.
-- `solution/exploit.py`: dành cho writeup/đội tấn công, chứa logic parse H.265
-  và khôi phục flag từ các bề mặt public bị lỗi.
-
-Việc tách này quan trọng vì checker không nên tiết lộ cách khai thác cho đội
-phòng thủ hoặc bị bundle nhầm vào môi trường chấm.
-
 ## Mã trạng thái
 
 Checker trả exit code theo kiểu Hackerdom:

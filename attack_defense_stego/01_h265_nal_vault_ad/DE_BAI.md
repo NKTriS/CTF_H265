@@ -80,23 +80,6 @@ Người chơi cần:
 - Không trả custody hint trong header thumbnail.
 - Không deploy route operator debug trả marker.
 
-## Cấu hình Attack/Defense đề xuất
-
-Bài này được thiết kế để chạy như một service A/D thật, không phải Jeopardy đơn lẻ.
-
-```text
-Service port: 8000
-Checker type: hackerdom
-Checker timeout: 20 giây
-Round time: 300 giây
-Max round: 20
-Flag lifetime: 5 round
-Puts mỗi round: 1
-Gets mỗi round: 2
-Places: 3
-Flag prefix: blockChainPTIT
-```
-
 Checker hỗ trợ cả hai kiểu gọi:
 
 ```bash

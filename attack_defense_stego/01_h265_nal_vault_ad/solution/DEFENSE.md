@@ -588,17 +588,3 @@ Dùng tên biến khác:
 $servicePid = Get-Content .lab_service.pid
 Stop-Process -Id $servicePid -Force
 ```
-
-## 10. Kết Luận Defense
-
-Defense của bài này cần theo nguyên tắc:
-
-```text
-Public artifact không được chứa dữ liệu sinh từ marker.
-Public route không được đọc marker.
-Cache cũ phải bị vô hiệu hóa sau khi đổi sanitizer.
-Debug route không được tồn tại trong môi trường thi.
-Checker không được công khai token hoặc sinh token từ flag id public.
-```
-
-Nếu chỉ vá một điểm, bài vẫn có thể bị khai thác qua điểm khác. Cách vá đúng là đóng toàn bộ đường đưa dữ liệu nội bộ ra ngoài, đặc biệt là các đường tưởng như vô hại như metadata video, HTTP header, diagnostics và cache.
