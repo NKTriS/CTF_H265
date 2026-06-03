@@ -21,40 +21,6 @@ flag_prefix: blockChainPTIT
 
 Các giá trị `round_time`, `max_round`, `flag_lifetime` và `flag_prefix` khớp với demo ADArena đã kiểm tra.
 
-## Kiểu gọi được hỗ trợ
-
-Checker hỗ trợ cả kiểu mode đứng trước:
-
-```bash
-python checker.py check 10.10.0.5
-python checker.py put 10.10.0.5 flag_id blockChainPTIT{flag} 1
-python checker.py get 10.10.0.5 flag_id blockChainPTIT{flag} 1
-```
-
-và kiểu host đứng trước:
-
-```bash
-python checker.py 10.10.0.5 check
-python checker.py 10.10.0.5 put flag_id blockChainPTIT{flag} 1
-python checker.py 10.10.0.5 get flag_id blockChainPTIT{flag} 1
-```
-
-Khi test local có thể truyền port:
-
-```bash
-python checker.py check 127.0.0.1 8000
-python checker.py 127.0.0.1 8000 put flag_id blockChainPTIT{flag} 1
-python checker.py 127.0.0.1 8000 get flag_id blockChainPTIT{flag} 1
-```
-
-Service nên chạy bằng Docker Compose khi đưa vào môi trường A/D vì lúc đó có đủ `proxy`, `front`, `backend`, `preview-worker` và `postgres`. Khi chỉ cần test nhanh checker ở máy local, có thể chạy Flask trực tiếp trong `service/backend`; backend sẽ đọc các file trong `service/front` cho `/` và `/login`, đồng thời vẫn giữ đủ API cho checker:
-
-```powershell
-cd service/backend
-$env:DATA_DIR = "../../_local_data"
-python -m flask --app app run --host 127.0.0.1 --port 8000
-```
-
 ## Dữ liệu public và private
 
 Mode `put` in ra đúng một dòng `flag_id`:
